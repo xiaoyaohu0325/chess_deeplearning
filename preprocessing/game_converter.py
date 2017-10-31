@@ -95,10 +95,11 @@ def decode_piece(p):
 
 
 def fen_pieces_to_board(pieces: str):
+    """lower left as origin, the same as the chess library"""
     board = np.zeros((8, 8), dtype=np.uint8)
     ranks = pieces.split("/")
-    for i in range(8):
-        rank = ranks[i]
+    for i in range(0, 8):
+        rank = ranks[8 - (i + 1)]
         j = 0
         for piece in rank:
             if piece.isnumeric():

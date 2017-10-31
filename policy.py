@@ -135,8 +135,8 @@ class ResnetPolicy(object):
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)
         y = layers.Flatten()(y)
-        # give a name for the out, out dimension is 64*64
-        y = layers.Dense(4096, activation="sigmoid", name="policy_output",
+        # give a name for the out, out dimension is 64*63
+        y = layers.Dense(4032, activation="sigmoid", name="policy_output",
                          kernel_regularizer=regularizers.l2(reg_control))(y)
 
         return y

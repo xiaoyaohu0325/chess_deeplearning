@@ -291,7 +291,7 @@ class TreeNode(object):
             current_node = current_node.parent
         return current_node
 
-    def save_as_pgn(self, file_path):
+    def _get_pgn_game(self):
         root = self.get_root()
         game = pgn.Game()
         game.headers["Event"] = "Self play"
@@ -306,6 +306,15 @@ class TreeNode(object):
 
         game.headers["Result"] = next_node.board.result(claim_draw=True)
 
+        return game
+
+    def save_as_pgn(self, file_path):
+        game = self._get_pgn_game()
         with open(file_path, "w", encoding="utf-8") as f:
             exporter = chess.pgn.FileExporter(f)
             game.accept(exporter)
+
+    def export_pgn_str(self):
+        game = self._get_pgn_game()
+        exporter = chess.pgn.StringExporter(headers=True)
+        return game.accept(exporter)

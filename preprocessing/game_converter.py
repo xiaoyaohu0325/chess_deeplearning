@@ -1,4 +1,6 @@
 import numpy as np
+import os
+import h5py as h5
 
 
 def fen_to_features(fen: str):
@@ -111,3 +113,52 @@ def fen_pieces_to_board(pieces: str):
                 j += 1
 
     return board
+
+
+def save_pgn_to_hd5(file_path, pgn, game_result):
+    exists = os.path.exists(file_path)
+
+    h5f = h5.File(file_path)
+
+    try:
+        # see http://docs.h5py.org/en/latest/high/group.html#Group.create_dataset
+        dt = h5.special_dtype(vlen=bytes)
+        if not exists:
+            h5f.require_dataset(
+                name='draw',
+                dtype=dt,
+                shape=(1, ),
+                maxshape=(None, ),
+                chunks=True)  # compression="gzip")
+            h5f.require_dataset(
+                name='white',
+                dtype=dt,
+                shape=(1,),
+                maxshape=(None,),
+                chunks=True)  # compression="gzip")
+            h5f.require_dataset(
+                name='black',
+                dtype=dt,
+                shape=(1,),
+                maxshape=(None,),
+                chunks=True)  # compression="gzip")
+
+        if game_result == "1-0":
+            dest = h5f["white"]
+        elif game_result == "0-1":
+            dest = h5f["black"]
+        else:
+            dest = h5f["draw"]
+
+        size = len(dest)
+        if dest[size - 1] is None:
+            dest[size - 1] = pgn
+        else:
+            dest.resize((size + 1,))
+            dest[size] = pgn
+    except Exception as e:
+        print("append to hdf5 failed")
+        raise e
+    finally:
+        # processing complete; rename tmp_file to hdf5_file
+        h5f.close()

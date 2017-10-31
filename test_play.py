@@ -8,7 +8,7 @@ from preprocessing import game_converter
 class TestGameTree(unittest.TestCase):
 
     def test_play(self):
-        for i in range(200):
+        for i in range(10):
             print("iteration ", i)
             root_node = TreeNode(None)
             current_node = root_node
@@ -37,6 +37,6 @@ class TestGameTree(unittest.TestCase):
             # print("tree depth: ", current_node.depth)
             # print("game over, elapsed ", end - start)
             # root_node.save_as_pgn(r"./out/self-play-not-draw.pgn")
-            game_converter.save_pgn_to_hd5(r"./out/self-play.hdf5",
+            game_converter.save_pgn_to_hd5(r"./out/self-play-1.hdf5",
                                            current_node.export_pgn_str(),
                                            current_node.board.result(claim_draw=True))

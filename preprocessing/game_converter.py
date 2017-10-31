@@ -127,19 +127,19 @@ def save_pgn_to_hd5(file_path, pgn, game_result):
             h5f.require_dataset(
                 name='draw',
                 dtype=dt,
-                shape=(1, ),
+                shape=(0, ),
                 maxshape=(None, ),
                 chunks=True)  # compression="gzip")
             h5f.require_dataset(
                 name='white',
                 dtype=dt,
-                shape=(1,),
+                shape=(0,),
                 maxshape=(None,),
                 chunks=True)  # compression="gzip")
             h5f.require_dataset(
                 name='black',
                 dtype=dt,
-                shape=(1,),
+                shape=(0,),
                 maxshape=(None,),
                 chunks=True)  # compression="gzip")
 
@@ -151,11 +151,73 @@ def save_pgn_to_hd5(file_path, pgn, game_result):
             dest = h5f["draw"]
 
         size = len(dest)
-        if dest[size - 1] is None:
-            dest[size - 1] = pgn
-        else:
-            dest.resize((size + 1,))
-            dest[size] = pgn
+        dest.resize((size + 1,))
+        dest[size] = pgn
+    except Exception as e:
+        print("append to hdf5 failed")
+        raise e
+    finally:
+        # processing complete; rename tmp_file to hdf5_file
+        h5f.close()
+
+
+def convert_game(game_tree):
+    """Convert a game tree into nerual network input
+    """
+    root_node = game_tree.get_root()
+    if root_node.is_leaf():
+        raise ValueError("no moves available")
+
+    # iterate moves until game end or leaf node arrived
+    current_node = root_node.next_node()
+    while current_node is not None:
+        features = current_node.get_input_features()
+        pi = current_node.pi
+        r = current_node.reward
+        current_node = current_node.next_node()
+        yield (features, pi, r)
+
+
+def features_to_hd5(file_path, game_tree):
+    exists = os.path.exists(file_path)
+
+    h5f = h5.File(file_path)
+
+    try:
+        # see http://docs.h5py.org/en/latest/high/group.html#Group.create_dataset
+        if not exists:
+            h5f.require_dataset(
+                name='features',
+                dtype=np.uint8,
+                shape=(0, 8, 8, 18),
+                maxshape=(None, 8, 8, 18),
+                chunks=True)
+            h5f.require_dataset(
+                name='probs',
+                dtype=np.float,
+                shape=(0, 4096),
+                maxshape=(None, 4096),
+                chunks=True)
+            h5f.require_dataset(
+                name='rewards',
+                dtype=np.int8,
+                shape=(0, 1),
+                maxshape=(None, 1),
+                chunks=True)
+
+        features = h5f["features"]
+        actions = h5f["probs"]
+        rates = h5f["rewards"]
+        size = len(features)
+
+        for state, pi, r in convert_game(game_tree):
+            features.resize((size + 1, 8, 8, 18))
+            actions.resize((size + 1, 4096))
+            rates.resize((size + 1, 1))
+            features[size] = state
+            actions[size] = pi
+            rates[size] = r
+
     except Exception as e:
         print("append to hdf5 failed")
         raise e

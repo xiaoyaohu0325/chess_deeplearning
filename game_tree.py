@@ -17,8 +17,8 @@ class TreeNode(object):
     def __init__(self, parent,
                  policy=None,
                  fen=None,
-                 action=None,   # (from_square_index, to_square_index)
-                 prior_p_array=None):
+                 action=None   # (from_square_index, to_square_index)
+                 ):
         self.parent = parent
         if fen is not None:
             self.fen = fen
@@ -41,9 +41,9 @@ class TreeNode(object):
         self.W = 0  # total action-value
         self.Q = 0  # mean action-value
         self.P = 0  # prior probability of selecting this node
-        self.prior_p_array = prior_p_array  # evaluated probabilities in this state
+        self.prior_p_array = None  # evaluated probabilities in this state
         self.u = 0
-        self.pi = np.zeros(4032)  # updated probabilities
+        self.pi = np.zeros(4096)  # updated probabilities
         self.reward = 0
         # do move to update the board state, fen
         self._do_move()
@@ -113,7 +113,7 @@ class TreeNode(object):
 
         return selected_node
 
-    def expand_and_evaluate(self):
+    def evaluate(self):
         """The leaf node sL is added to a queue for neural network evaluation,
         (di(p), v) = f(di(sL)), where di is a dihedral reflection or rotation selected
         uniformly at random from i between [1..8].
@@ -122,17 +122,17 @@ class TreeNode(object):
         and each edge (sL, a) is initialised to
         {N(sL,a) = 0,W(sL,a) = 0,Q(sL,a) = 0,P(sL,a) = pa}; the value v is then backed up.
         """
-        if len(self.trans_predicts) == 0:
+        if self.prior_p_array is None:
             if self.policy is not None:
-                trans_features = self.get_transformation_features()
-                output = self.policy.forward([trans_features])
-                # shape of output[0] is (8, 362), shape of output[1] is (8, 1)
+                features = self.get_input_features()
+                output = self.policy.forward([features])
+                # shape of output[0] is (1, 4096), shape of output[1] is (1, 1)
                 self.prior_p_array = output[0][0]  # The first one is not rotated
-                for i in range(8):
-                    predict_v = output[1][i][0]
-                    self.trans_predicts.append(predict_v)
+                self.reward = output[1][0][0]
+            else:
+                raise ValueError("cannot evaluate if policy is None")
 
-        return self.trans_predicts
+        return self.reward
 
     def play(self):
         """the child node corresponding to the played action becomes the new root node;
@@ -151,12 +151,9 @@ class TreeNode(object):
         if self.board.is_game_over(claim_draw=True):
             return self
 
-        if self.prior_p_array is None or len(self.prior_p_array) != 4032:
+        if self.prior_p_array is None:
             # evaluate this node to get probabilities of legal moves
-            features = self.get_input_features()
-            init_out = self.policy.forward([features])
-            # init_out[0] shape is (1, 4032)
-            self.prior_p_array = init_out[0][0]
+            self.evaluate()
 
         board = chess.Board(self.fen)
         for move in board.generate_legal_moves():
@@ -164,7 +161,7 @@ class TreeNode(object):
 
             sub_node = TreeNode(parent=self,
                                 policy=self.policy,
-                                action=move)
+                                action=action)
             self.children[action] = sub_node
             sub_node.set_prior_prob(self.prior_p_array[action[0]*64 + action[1]])
 

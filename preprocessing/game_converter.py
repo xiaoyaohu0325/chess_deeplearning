@@ -116,32 +116,35 @@ def fen_pieces_to_board(pieces: str):
 
 
 def save_pgn_to_hd5(file_path, pgn, game_result):
-    exists = os.path.exists(file_path)
-
     h5f = h5.File(file_path)
 
     try:
         # see http://docs.h5py.org/en/latest/high/group.html#Group.create_dataset
         dt = h5.special_dtype(vlen=bytes)
-        if not exists:
+        if "draw" not in h5f:
             h5f.require_dataset(
                 name='draw',
                 dtype=dt,
                 shape=(0, ),
                 maxshape=(None, ),
-                chunks=True)  # compression="gzip")
+                chunks=True,
+                compression="gzip")
+        if "white" not in h5f:
             h5f.require_dataset(
                 name='white',
                 dtype=dt,
                 shape=(0,),
                 maxshape=(None,),
-                chunks=True)  # compression="gzip")
+                chunks=True,
+                compression="gzip")
+        if "black" not in h5f:
             h5f.require_dataset(
                 name='black',
                 dtype=dt,
                 shape=(0,),
                 maxshape=(None,),
-                chunks=True)  # compression="gzip")
+                chunks=True,
+                compression="gzip")
 
         if game_result == "1-0":
             dest = h5f["white"]
@@ -179,31 +182,34 @@ def convert_game(game_tree):
 
 
 def features_to_hd5(file_path, game_tree):
-    exists = os.path.exists(file_path)
-
     h5f = h5.File(file_path)
 
     try:
         # see http://docs.h5py.org/en/latest/high/group.html#Group.create_dataset
-        if not exists:
+        if "features" not in h5f:
             h5f.require_dataset(
                 name='features',
                 dtype=np.uint8,
                 shape=(0, 8, 8, 18),
                 maxshape=(None, 8, 8, 18),
-                chunks=True)
+                chunks=True,
+                compression="gzip")
+        if "probs" not in h5f:
             h5f.require_dataset(
                 name='probs',
                 dtype=np.float,
                 shape=(0, 4096),
                 maxshape=(None, 4096),
-                chunks=True)
+                chunks=True,
+                compression="gzip")
+        if "rewards" not in h5f:
             h5f.require_dataset(
                 name='rewards',
                 dtype=np.int8,
                 shape=(0, 1),
                 maxshape=(None, 1),
-                chunks=True)
+                chunks=True,
+                compression="gzip")
 
         features = h5f["features"]
         actions = h5f["probs"]

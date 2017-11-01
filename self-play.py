@@ -5,14 +5,19 @@ from timeit import default_timer as timer
 from preprocessing import game_converter
 import os
 
-simulations = 20
-depth = 1
+simulations = 40
+depth = 2
+"""
+simulations = 20, depth = 3, about 1.5s per move
+simulations = 40, depth = 2, about 0.8s per move
+simulations = 80, depth = 2, about 1.0s per move
+"""
 
 
-def play_a_game(pid):
+def play_a_game():
     policy = ResnetPolicy.load_model("./out/model.json")
 
-    for i in range(1):
+    for i in range(1000):
         # start a new
         start = timer()
         root_node = TreeNode(None, policy=policy)
@@ -21,21 +26,20 @@ def play_a_game(pid):
             start_search = timer()
             search_move(next_node, simulations, depth)
             end_search = timer()
-            print("search move elapsed: ", end_search - start_search)
             next_node = next_node.play()
-
+            print('search move ', end_search - start_search)
             if next_node.board.is_game_over(claim_draw=True):
                 break
 
         next_node.feed_back_winner()
 
-        game_converter.save_pgn_to_hd5(file_path="./out/self_play/self-play-ai.hdf",
+        game_converter.save_pgn_to_hd5(file_path="./out/self_play/iter1/pgn.h5",
                                        pgn=next_node.export_pgn_str(),
                                        game_result=next_node.board.result(claim_draw=True))
-        game_converter.features_to_hd5(file_path="./out/self_play/features-ai.hdf",
+        game_converter.features_to_hd5(file_path="./out/self_play/iter1/features.h5",
                                        game_tree=root_node)
         end = timer()
-        print("pid ", pid, ", game ", i, " finished!  elapsed ", end-start)
+        print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth)
 
 
 def search_move(s0_node, n_simulation, n_depth):
@@ -49,7 +53,7 @@ def search_move(s0_node, n_simulation, n_depth):
 
 
 def run_self_play():
-    play_a_game(1)
+    play_a_game()
     # cpus = multiprocessing.cpu_count()
     # pool = multiprocessing.Pool()
     #

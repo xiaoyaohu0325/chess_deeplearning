@@ -169,7 +169,7 @@ def convert_game(game_tree):
         raise ValueError("no moves available")
 
     # iterate moves until game end or leaf node arrived
-    current_node = root_node.next_node()
+    current_node = root_node
     while current_node is not None:
         features = current_node.get_input_features()
         pi = current_node.pi
@@ -217,6 +217,7 @@ def features_to_hd5(file_path, game_tree):
             features[size] = state
             actions[size] = pi
             rates[size] = r
+            size += 1
 
     except Exception as e:
         print("append to hdf5 failed")

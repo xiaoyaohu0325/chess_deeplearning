@@ -3,6 +3,8 @@ from timeit import default_timer as timer
 import unittest
 from policy import ResnetPolicy
 from preprocessing import game_converter
+from game_tree import TreeNode
+import chess
 
 
 class TestPredict(unittest.TestCase):
@@ -24,3 +26,24 @@ class TestPredict(unittest.TestCase):
         print("output length: ", len(output))
         print(output[0].shape)  # (1, 362)
         print(output[1].shape)  # (1, 1)
+
+    def test_search(self):
+        policy = ResnetPolicy.load_model("./out/model.json")
+        root = TreeNode(None, policy)
+        root.expand_with_leagl_moves()
+
+        # for item in root.children.items():
+        #     action = item[0]
+        #     print("action ", action, ", move ", item[1].move)
+        #     print("from ", chess.square_name(action[0]), ", to ", chess.square_name(action[1]))
+        for i in range(100):
+            root.select(depth=1)
+
+        root.update_pi()
+        size = len(root.pi)
+        for i in range(size):
+            if root.pi[i] > 0:
+                from_p = int(i/64)
+                to_p = i % 64
+                print("from ", chess.square_name(from_p), ", to ", chess.square_name(to_p))
+                print("probability ", root.pi[i])

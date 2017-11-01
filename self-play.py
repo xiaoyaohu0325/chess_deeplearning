@@ -5,14 +5,14 @@ from timeit import default_timer as timer
 from preprocessing import game_converter
 import os
 
-simulations = 2
+simulations = 20
 depth = 1
 
 
 def play_a_game(pid):
     policy = ResnetPolicy.load_model("./out/model.json")
 
-    for i in range(20):
+    for i in range(1):
         # start a new
         start = timer()
         root_node = TreeNode(None, policy=policy)

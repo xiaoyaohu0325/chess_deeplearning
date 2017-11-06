@@ -11,6 +11,7 @@ def play(white_player, black_player, n_game=100):
         while move is not None:
             move = game.play()
 
+        print('game', i, 'finished! Full moves', game.fullmove_count(), 'winner:', game.winner_color())
         game.save_to_h5("./out/checkpoint/gen0_gen1.h5")
 
 

@@ -30,6 +30,9 @@ class Game(object):
         self.turn = not self.turn
         return move
 
+    def fullmove_count(self):
+        return self.board.fullmove_number
+
     def winner_color(self):
         result = self.board.result(claim_draw=True)
 

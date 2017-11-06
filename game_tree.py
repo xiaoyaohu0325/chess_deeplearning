@@ -185,7 +185,7 @@ class TreeNode(object):
             self.P = prob
         self.update_recursive(0)  # udpate self.u
 
-    def backup(self, leaf_value, c_puct=5):
+    def backup(self, leaf_value, player_turn, c_puct=5):
         """(Figure 2c) The edge statistics are updated in a backward pass through each step
         t <= L.
 
@@ -203,7 +203,10 @@ class TreeNode(object):
         # Count visit.
         self.N += 1
         # Update W
-        self.W += leaf_value
+        if self.board.turn == player_turn:
+            self.W += leaf_value
+        else:
+            self.W -= leaf_value
         # Update Q, a running average of values for all visits.
         self.Q = self.W / self.N
         # Update u, the prior weighted by an exploration hyperparameter c_puct and the number of
@@ -211,7 +214,7 @@ class TreeNode(object):
         if not self.is_root():
             self.u = c_puct * self.P * np.sqrt(self.parent.N) / (1 + self.N)
 
-    def update_recursive(self, leaf_value, c_puct=5):
+    def update_recursive(self, leaf_value, player_turn, c_puct=5):
         """Like a call to update(), but applied recursively for all ancestors.
 
         Note: it is important that this happens from the root downward so that 'parent' visit
@@ -219,8 +222,8 @@ class TreeNode(object):
         """
         # If it is not root, this node's parent should be updated first.
         if not self.is_root():
-            self.parent.update_recursive(leaf_value, c_puct)
-        self.backup(leaf_value, )
+            self.parent.update_recursive(leaf_value, player_turn, c_puct)
+        self.backup(leaf_value, player_turn)
 
     def feed_back_winner(self):
         """When game is over, it is then scored to give a final reward of r_T {-1,0,+1}

@@ -2,6 +2,7 @@ import numpy as np
 import chess
 import chess.pgn as pgn
 from preprocessing import game_converter
+import logging
 # from policy import ResnetPolicy
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -107,10 +108,10 @@ class TreeNode(object):
                 if selected_node.is_leaf():  # game over, nothing expanded
                     break
             (action, selected_node) = max(selected_node.children.items(), key=lambda act_node: act_node[1].get_value())
-
             if selected_node.depth >= target_depth:
                 break
 
+        logging.debug("node selected: %s", selected_node.get_msg())
         return selected_node
 
     def evaluate(self):
@@ -129,6 +130,7 @@ class TreeNode(object):
                 # shape of output[0] is (1, 4096), shape of output[1] is (1, 1)
                 self.prior_p_array = output[0][0]  # The first one is not rotated
                 self.reward = output[1][0][0]
+                logging.debug("node %s, evaluate reward %f", self.get_msg(), self.reward)
             else:
                 raise ValueError("cannot evaluate if policy is None")
 
@@ -139,6 +141,7 @@ class TreeNode(object):
         the subtree below this child is retained along with all its statistics, """
         self.update_pi()
         play_node = self.select(depth=1)
+        logging.debug("play node %s", play_node.get_msg())
 
         # Discard other child nodes
         self.children.clear()
@@ -148,15 +151,14 @@ class TreeNode(object):
     def expand_with_leagl_moves(self):
         """(Figure 2b) Expand tree by creating new children using legal moves, including PASS_MOVE.
         """
-        if self.board.is_game_over(claim_draw=True):
-            return self
+        # if self.board.is_game_over(claim_draw=True):
+        #     return self
 
         if self.prior_p_array is None:
             # evaluate this node to get probabilities of legal moves
             self.evaluate()
 
-        board = chess.Board(self.fen)
-        for move in board.generate_legal_moves():
+        for move in self.board.generate_legal_moves():
             action = (move.from_square, move.to_square)
 
             sub_node = TreeNode(parent=self,
@@ -178,14 +180,15 @@ class TreeNode(object):
 
     def set_prior_prob(self, prob: float):
         """Set the prior probability of this node"""
+        c_puct = 5
         add_noise = self.depth <= 10  # First 30 moves should add noise.
         if add_noise:
             self.P = 0.75 * prob + 0.25 * np.random.randint(1, 100) / 100
         else:
             self.P = prob
-        self.update_recursive(0)  # udpate self.u
+        self.u = self.P * c_puct * 0.5
 
-    def backup(self, leaf_value, player_turn, c_puct=5):
+    def backup(self, leaf_value, c_puct=5):
         """(Figure 2c) The edge statistics are updated in a backward pass through each step
         t <= L.
 
@@ -200,21 +203,24 @@ class TreeNode(object):
         Returns:
         None
         """
+        if self.depth == 1:
+            logging.debug("node backup: %s", self.get_msg())
+            logging.debug("weight before update: %s", self._weights())
+            logging.debug("update value: %f", leaf_value)
         # Count visit.
         self.N += 1
         # Update W
-        if self.board.turn == player_turn:
-            self.W += leaf_value
-        else:
-            self.W -= leaf_value
+        self.W += leaf_value
         # Update Q, a running average of values for all visits.
         self.Q = self.W / self.N
         # Update u, the prior weighted by an exploration hyperparameter c_puct and the number of
         # visits. Note that u is not normalized to be a distribution.
         if not self.is_root():
             self.u = c_puct * self.P * np.sqrt(self.parent.N) / (1 + self.N)
+        if self.depth == 1:
+            logging.debug("weight after update: %s", self._weights())
 
-    def update_recursive(self, leaf_value, player_turn, c_puct=5):
+    def update_recursive(self, leaf_value, c_puct=5):
         """Like a call to update(), but applied recursively for all ancestors.
 
         Note: it is important that this happens from the root downward so that 'parent' visit
@@ -222,8 +228,8 @@ class TreeNode(object):
         """
         # If it is not root, this node's parent should be updated first.
         if not self.is_root():
-            self.parent.update_recursive(leaf_value, player_turn, c_puct)
-        self.backup(leaf_value, player_turn)
+            self.parent.update_recursive(leaf_value, c_puct)
+        self.backup(leaf_value)
 
     def feed_back_winner(self):
         """When game is over, it is then scored to give a final reward of r_T {-1,0,+1}
@@ -290,6 +296,16 @@ class TreeNode(object):
         while not current_node.is_root():
             current_node = current_node.parent
         return current_node
+
+    def get_msg(self):
+        if self.move is not None:
+            uci_str = self.move.uci()
+        else:
+            uci_str = 'None'
+        return "depth: %d, move: %s, turn: %d" % (self.depth, uci_str, self.board.turn)
+
+    def _weights(self):
+        return "W: %f, Q: %f, N: %d, u: %f" % (self.W, self.Q, self.N, self.u)
 
     def _get_pgn_game(self):
         root = self.get_root()

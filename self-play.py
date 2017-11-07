@@ -5,19 +5,14 @@ from timeit import default_timer as timer
 from preprocessing import game_converter
 import os
 
-simulations = 40
-depth = 2
-"""
-simulations = 20, depth = 3, about 1.5s per move
-simulations = 40, depth = 2, about 0.8s per move
-simulations = 80, depth = 2, about 1.0s per move
-"""
+simulations = 400
+depth = 8
 
 
 def play_a_game():
     policy = ResnetPolicy.load_model("./out/model.json")
 
-    for i in range(1000):
+    for i in range(1):
         # start a new
         start = timer()
         root_node = TreeNode(None, policy=policy)
@@ -33,10 +28,10 @@ def play_a_game():
 
         next_node.feed_back_winner()
 
-        game_converter.save_pgn_to_hd5(file_path="./out/self_play/iter1/pgn.h5",
+        game_converter.save_pgn_to_hd5(file_path="./out/self_play/test_pgn.h5",
                                        pgn=next_node.export_pgn_str(),
                                        game_result=next_node.board.result(claim_draw=True))
-        game_converter.features_to_hd5(file_path="./out/self_play/iter1/features.h5",
+        game_converter.features_to_hd5(file_path="./out/self_play/test_features.h5",
                                        game_tree=root_node)
         end = timer()
         print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth)

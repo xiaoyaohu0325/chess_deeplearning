@@ -6,6 +6,7 @@ import logging
 # from policy import ResnetPolicy
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+C_PUCT = 3
 
 
 class TreeNode(object):
@@ -180,15 +181,14 @@ class TreeNode(object):
 
     def set_prior_prob(self, prob: float):
         """Set the prior probability of this node"""
-        c_puct = 3
         add_noise = self.depth <= 10  # First 30 moves should add noise.
         if add_noise:
             self.P = 0.75 * prob + 0.25 * np.random.randint(1, 100) / 100
         else:
             self.P = prob
-        self.u = self.P * c_puct * 0.5
+        self.u = self.P * C_PUCT * 0.5
 
-    def backup(self, leaf_value, c_puct=3):
+    def backup(self, leaf_value):
         """(Figure 2c) The edge statistics are updated in a backward pass through each step
         t <= L.
 
@@ -216,11 +216,11 @@ class TreeNode(object):
         # Update u, the prior weighted by an exploration hyperparameter c_puct and the number of
         # visits. Note that u is not normalized to be a distribution.
         if not self.is_root():
-            self.u = c_puct * self.P * np.sqrt(self.parent.N) / (1 + self.N)
+            self.u = C_PUCT * self.P * np.sqrt(self.parent.N) / (1 + self.N)
         if self.depth == 1:
             logging.debug("weight after update: %s", self._weights())
 
-    def update_recursive(self, leaf_value, c_puct=2.5):
+    def update_recursive(self, leaf_value):
         """Like a call to update(), but applied recursively for all ancestors.
 
         Note: it is important that this happens from the root downward so that 'parent' visit
@@ -228,7 +228,7 @@ class TreeNode(object):
         """
         # If it is not root, this node's parent should be updated first.
         if not self.is_root():
-            self.parent.update_recursive(leaf_value, c_puct)
+            self.parent.update_recursive(leaf_value)
         self.backup(leaf_value)
 
     def feed_back_winner(self):

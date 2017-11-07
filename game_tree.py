@@ -180,7 +180,7 @@ class TreeNode(object):
 
     def set_prior_prob(self, prob: float):
         """Set the prior probability of this node"""
-        c_puct = 5
+        c_puct = 3
         add_noise = self.depth <= 10  # First 30 moves should add noise.
         if add_noise:
             self.P = 0.75 * prob + 0.25 * np.random.randint(1, 100) / 100
@@ -188,7 +188,7 @@ class TreeNode(object):
             self.P = prob
         self.u = self.P * c_puct * 0.5
 
-    def backup(self, leaf_value, c_puct=5):
+    def backup(self, leaf_value, c_puct=3):
         """(Figure 2c) The edge statistics are updated in a backward pass through each step
         t <= L.
 
@@ -220,7 +220,7 @@ class TreeNode(object):
         if self.depth == 1:
             logging.debug("weight after update: %s", self._weights())
 
-    def update_recursive(self, leaf_value, c_puct=5):
+    def update_recursive(self, leaf_value, c_puct=2.5):
         """Like a call to update(), but applied recursively for all ancestors.
 
         Note: it is important that this happens from the root downward so that 'parent' visit

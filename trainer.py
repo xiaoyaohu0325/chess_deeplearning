@@ -9,15 +9,6 @@ from keras.callbacks import ModelCheckpoint, Callback
 from policy import ResnetPolicy
 
 
-def value_loss(y_true, y_pred):
-    """There are two outputs for the model, first is policy probabilities,
-    second is a scalar value
-
-    This is the loss of scalar value
-    """
-    return K.square(y_true[0][0] - y_pred[0][0])
-
-
 def shuffled_hdf5_batch_generator(feature_dataset,
                                   probs_dataset,
                                   rewards_dataset,
@@ -209,7 +200,7 @@ def run_training(cmd_line_args=None):
     # of output layer.
     model.compile(loss={
         'policy_output': losses.binary_crossentropy,
-        'value_output': value_loss},
+        'value_output': losses.mse},
         loss_weights={'policy_output': 1., 'value_output': 1.},
         optimizer=optimizer,
         metrics=["accuracy"])

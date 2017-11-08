@@ -6,7 +6,7 @@ import logging
 # from policy import ResnetPolicy
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-C_PUCT = 3
+C_PUCT = 5
 
 
 class TreeNode(object):
@@ -231,21 +231,24 @@ class TreeNode(object):
             self.parent.update_recursive(leaf_value)
         self.backup(leaf_value)
 
-    def feed_back_winner(self):
+    def feed_back_winner(self, force=False):
         """When game is over, it is then scored to give a final reward of r_T {-1,0,+1}
         The data for each time-step t is stored as (s_t,Pi_t,z_t) where z_t = ±r_T is the
         game winner from the perspective of the current player at step t
         """
-        if not self.board.is_game_over(claim_draw=True):
-            raise ValueError("this method can be invoked only when game is over")
+        if not force:
+            if not self.board.is_game_over(claim_draw=True):
+                raise ValueError("this method can be invoked only when game is over")
 
-        result = self.board.result(claim_draw=True)
-        if result == "0-1":
-            winner = chess.BLACK
-        elif result == "1-0":
-            winner = chess.WHITE
-        elif result == "1/2-1/2":
-            winner = None
+            result = self.board.result(claim_draw=True)
+            if result == "0-1":
+                winner = chess.BLACK
+            elif result == "1-0":
+                winner = chess.WHITE
+            elif result == "1/2-1/2":
+                winner = None
+        else:
+            winner = None   # force to terminate
 
         current_node = self
         while current_node is not None:

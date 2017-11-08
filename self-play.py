@@ -1,12 +1,11 @@
 from policy import ResnetPolicy
 from game_tree import TreeNode
-# import multiprocessing
 from timeit import default_timer as timer
 from preprocessing import game_converter
-import os
 
 simulations = 400
 depth = 8
+max_moves = 300
 
 
 def play_a_game():
@@ -17,16 +16,21 @@ def play_a_game():
         start = timer()
         root_node = TreeNode(None, policy=policy)
         next_node = root_node
+        moves = 0
         while True:
             start_search = timer()
             search_move(next_node, simulations, depth)
             end_search = timer()
             next_node = next_node.play()
+            moves += 1
             print('search move ', end_search - start_search)
-            if next_node.board.is_game_over(claim_draw=True):
+            if moves > max_moves or next_node.board.is_game_over(claim_draw=True):
                 break
 
-        next_node.feed_back_winner()
+        if moves > max_moves:
+            next_node.feed_back_winner(force=True)
+        else:
+            next_node.feed_back_winner()
 
         game_converter.save_pgn_to_hd5(file_path="./out/self_play/test_pgn.h5",
                                        pgn=next_node.export_pgn_str(),

@@ -39,8 +39,8 @@ class TestPredict(unittest.TestCase):
         #     print("action ", action, ", move ", item[1].move)
         #     print("from ", chess.square_name(action[0]), ", to ", chess.square_name(action[1]))
         start = timer()
-        for i in range(900):
-            selected_node = root.select(depth=8)
+        for i in range(800):
+            selected_node = root.select(depth=2)
             reward = selected_node.evaluate()
             selected_node.update_recursive(reward)
 

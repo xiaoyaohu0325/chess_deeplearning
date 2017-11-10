@@ -3,7 +3,6 @@ import chess
 import chess.pgn as pgn
 from preprocessing import game_converter
 import logging
-# from policy import ResnetPolicy
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 C_PUCT = 5
@@ -181,9 +180,9 @@ class TreeNode(object):
 
     def set_prior_prob(self, prob: float):
         """Set the prior probability of this node"""
-        add_noise = self.depth <= 10  # First 30 moves should add noise.
+        add_noise = True  # self.depth <= 20  # First 20 moves should add noise.
         if add_noise:
-            self.P = 0.75 * prob + 0.25 * np.random.randint(1, 100) / 100
+            self.P = 0.75 * prob + 0.25 * np.random.dirichlet((3, 100))[0]
         else:
             self.P = prob
         self.u = self.P * C_PUCT * 0.5
@@ -280,7 +279,7 @@ class TreeNode(object):
         position s0, proportional to its exponentiated visit count
         """
         temperature = 1  # first 30 moves
-        if self.depth > 10:
+        if self.depth > 30:
             temperature = 50  # τ→0, 1/τ→a big number
         if not self.is_root():
             return pow(self.N, temperature)

@@ -1,10 +1,14 @@
 from game_tree import TreeNode
 from timeit import default_timer as timer
 from preprocessing import game_converter
+import argparse
 
 
-def play_game(num_game=1):
-    for i in range(num_game):
+def play_game(num_game=1, pid=0):
+    games = 0
+    while True:
+        if games > num_game:
+            break
         # start a new
         start = timer()
         root_node = TreeNode(None)
@@ -22,15 +26,15 @@ def play_game(num_game=1):
         result = next_node.board.result(claim_draw=True)
 
         if result != "1/2-1/2":
-            game_converter.save_pgn_to_hd5(file_path="./out/self_play/test_pgn.h5",
+            games += 1
+            end = timer()
+            print("game", games, "finished!  elapsed", end - start, ", round:", next_node.depth, 'result:', result)
+            game_converter.save_pgn_to_hd5(file_path="./out/self_play/uniform/pgn_" + pid + ".h5",
                                            pgn=next_node.export_pgn_str(),
                                            game_result=result)
-            game_converter.features_to_hd5(file_path="./out/self_play/test_features.h5",
+            game_converter.features_to_hd5(file_path="./out/self_play/uniform/features_" + pid + ".h5",
                                            game_tree=root_node)
             break
-
-        end = timer()
-        print("game", i, "finished!  elapsed", end-start, ", round:", next_node.depth, 'result:', result)
 
 
 def play_a_move(s0_node):
@@ -59,8 +63,18 @@ def play_a_move(s0_node):
     return selected_node
 
 
-def run_random_play():
-    play_game(100)
+def run_random_play(cmd_line_args=None):
+    parser = argparse.ArgumentParser(description='Perform random self play to generate data.')
+    # required args
+    parser.add_argument("games", help="Number of games to generate.")
+    parser.add_argument("pid", help="unique id of the generated h5 file.")
+
+    if cmd_line_args is None:
+        args = parser.parse_args()
+    else:
+        args = parser.parse_args(cmd_line_args)
+
+    play_game(args.games, args.pid)
 
 
 if __name__ == '__main__':

@@ -34,7 +34,6 @@ def play_game(num_game=1, pid=0):
                                            game_result=result)
             game_converter.features_to_hd5(file_path="./out/self_play/uniform/features_" + pid + ".h5",
                                            game_tree=root_node)
-            break
 
 
 def play_a_move(s0_node):
@@ -74,7 +73,7 @@ def run_random_play(cmd_line_args=None):
     else:
         args = parser.parse_args(cmd_line_args)
 
-    play_game(args.games, args.pid)
+    play_game(int(args.games), args.pid)
 
 
 if __name__ == '__main__':

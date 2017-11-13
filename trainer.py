@@ -9,13 +9,17 @@ from keras.callbacks import ModelCheckpoint, Callback
 from policy import ResnetPolicy
 
 
-def shuffled_hdf5_batch_generator(feature_dataset,
-                                  probs_dataset,
-                                  rewards_dataset,
-                                  indices, batch_size):
+def shuffled_hdf5_batch_generator(train_data,
+                                  indices,
+                                  batch_size):
     """A generator of batches of training data for use with the fit_generator function
     of Keras. Data is accessed in the order of the given indices for shuffling.
     """
+    dataset = h5.File(train_data)
+    feature_dataset = dataset["features"]
+    probs_dataset = dataset["probs"]
+    rewards_dataset = dataset["rewards"]
+
     f_batch_shape = (batch_size,) + feature_dataset.shape[1:]
     p_batch_shape = (batch_size, 4096)
     r_batch_shape = (batch_size, 1)
@@ -63,6 +67,28 @@ class MetadataWriterCallback(Callback):
             json.dump(self.metadata, f, indent=2)
 
 
+def meta_write_cb(out_directory, train_data, model, resume):
+    # create metadata file and the callback object that will write to it
+    meta_file = os.path.join(out_directory, "metadata.json")
+    meta_writer = MetadataWriterCallback(meta_file)
+    # load prior data if it already exists
+    if os.path.exists(meta_file) and resume:
+        with open(meta_file, "r") as f:
+            meta_writer.metadata = json.load(f)
+    # the MetadataWriterCallback only sets 'epoch' and 'best_epoch'. We can add
+    # in anything else we like here
+    # TODO - model and train_data are saved in meta_file; check that they match
+    # (and make args optional when restarting?)
+    meta_writer.metadata["training_data"] = train_data
+    meta_writer.metadata["model_file"] = model
+    # Record all command line args in a list so that all args are recorded even
+    # when training is stopped and resumed.
+    meta_writer.metadata["cmd_line_args"] = meta_writer.metadata.get("cmd_line_args", [])
+    # meta_writer.metadata["cmd_line_args"].append(vars(args))
+
+    return meta_writer
+
+
 def run_training(cmd_line_args=None):
     """Run training. command-line args may be passed in as a list
     """
@@ -92,17 +118,6 @@ def run_training(cmd_line_args=None):
 
     resume = args.weights is not None
 
-    if args.verbose:
-        if resume:
-            print("trying to resume from %s with weights %s" %
-                  (args.out_directory, os.path.join(args.out_directory, args.weights)))
-        else:
-            if os.path.exists(args.out_directory):
-                print("directory %s exists. any previous data will be overwritten" %
-                      args.out_directory)
-            else:
-                print("starting fresh output directory %s" % args.out_directory)
-
     # load model from json spec
     policy = ResnetPolicy.load_model(args.model)
     model = policy.model
@@ -119,41 +134,14 @@ def run_training(cmd_line_args=None):
     n_train_data = n_train_data - (n_train_data % args.minibatch)
     n_val_data = n_total_data - n_train_data
     # n_test_data = n_total_data - (n_train_data + n_val_data)
-
-    if args.verbose:
-        print("datset loaded")
-        print("\t%d total samples" % n_total_data)
-        print("\t%d training samples" % n_train_data)
-        print("\t%d validaion samples" % n_val_data)
+    dataset.close()
 
     # ensure output directory is available
     if not os.path.exists(args.out_directory):
         os.makedirs(args.out_directory)
 
     # create metadata file and the callback object that will write to it
-    meta_file = os.path.join(args.out_directory, "metadata.json")
-    meta_writer = MetadataWriterCallback(meta_file)
-    # load prior data if it already exists
-    if os.path.exists(meta_file) and resume:
-        with open(meta_file, "r") as f:
-            meta_writer.metadata = json.load(f)
-        if args.verbose:
-            print("previous metadata loaded: %d epochs. new epochs will be appended." %
-                  len(meta_writer.metadata["epochs"]))
-    elif args.verbose:
-        print("starting with empty metadata")
-    # the MetadataWriterCallback only sets 'epoch' and 'best_epoch'. We can add
-    # in anything else we like here
-    #
-    # TODO - model and train_data are saved in meta_file; check that they match
-    # (and make args optional when restarting?)
-    meta_writer.metadata["training_data"] = args.train_data
-    meta_writer.metadata["model_file"] = args.model
-    # Record all command line args in a list so that all args are recorded even
-    # when training is stopped and resumed.
-    meta_writer.metadata["cmd_line_args"] = meta_writer.metadata.get("cmd_line_args", [])
-    meta_writer.metadata["cmd_line_args"].append(vars(args))
-
+    meta_writer = meta_write_cb(args.out_directory, args.train_data, args.model, resume)
     # create ModelCheckpoint to save weights every epoch
     checkpoint_template = os.path.join(args.out_directory, "weights.{epoch:05d}.hdf5")
     checkpointer = ModelCheckpoint(checkpoint_template)
@@ -182,15 +170,11 @@ def run_training(cmd_line_args=None):
 
     # create dataset generators
     train_data_generator = shuffled_hdf5_batch_generator(
-        dataset["features"],
-        dataset["probs"],
-        dataset["rewards"],
+        args.train_data,
         train_indices,
         args.minibatch)
     val_data_generator = shuffled_hdf5_batch_generator(
-        dataset["features"],
-        dataset["probs"],
-        dataset["rewards"],
+        args.train_data,
         val_indices,
         args.minibatch)
 
@@ -205,18 +189,20 @@ def run_training(cmd_line_args=None):
         optimizer=optimizer,
         metrics=["accuracy"])
 
-    samples_per_epoch = args.epoch_length or n_train_data
+    samples_per_epoch = (args.epoch_length or n_train_data)
 
     if args.verbose:
         print("STARTING TRAINING")
 
     model.fit_generator(
         generator=train_data_generator,
-        samples_per_epoch=samples_per_epoch,
-        nb_epoch=args.epochs,
+        steps_per_epoch=int(samples_per_epoch/args.minibatch),
+        epochs=args.epochs,
         callbacks=[checkpointer, meta_writer],
         validation_data=val_data_generator,
-        nb_val_samples=n_val_data)
+        validation_steps=int(n_val_data/args.minibatch),
+        workers=2,
+        use_multiprocessing=True)
 
 
 if __name__ == '__main__':

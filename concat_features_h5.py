@@ -53,7 +53,7 @@ def hdf5_cancat(hdf5_files, output):
                     read_size = batch_size
                 else:
                     read_size = end - start
-
+                print('start:', start, ', read_size:', read_size)
                 features.resize((start+read_size, 8, 8, 18))
                 actions.resize((start+read_size, 4096))
                 rates.resize((start+read_size, 1))

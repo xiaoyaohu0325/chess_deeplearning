@@ -4,6 +4,8 @@ import os
 import argparse
 import sys
 
+batch_size = 1000
+
 
 def hdf5_cancat(hdf5_files, output):
     # initialise the output
@@ -44,14 +46,24 @@ def hdf5_cancat(hdf5_files, output):
 
             start = len(features)
             end = start + len(features_data)
+            offset = 0
 
-            features.resize((end, 8, 8, 18))
-            actions.resize((end, 4096))
-            rates.resize((end, 1))
+            while start < end:
+                if end - start >= batch_size:
+                    read_size = batch_size
+                else:
+                    read_size = end - start
 
-            features[start:end] = features_data
-            actions[start:end] = probs_data
-            rates[start:end] = rewards_data
+                features.resize((start+read_size, 8, 8, 18))
+                actions.resize((start+read_size, 4096))
+                rates.resize((start+read_size, 1))
+
+                features[start:start+read_size] = features_data[offset:offset+read_size]
+                actions[start:start+read_size] = probs_data[offset:offset+read_size]
+                rates[start:start+read_size] = rewards_data[offset:offset+read_size]
+
+                start += read_size
+                offset += read_size
 
             fileread.close()
 
@@ -90,7 +102,7 @@ def run_cancat(cmd_line_args=None):
 
 
 def _is_hdf5(fname):
-    return fname.strip()[-5:] == ".hdf5" or fname.strip()[-2:] == ".h5"
+    return fname.strip()[-5:] == ".hdf5" or fname.strip()[-3:] == ".h5"
 
 
 def _walk_all_hdf5s(root):

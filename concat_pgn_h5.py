@@ -16,21 +16,21 @@ def hdf5_cancat(hdf5_files, output):
             shape=(0, ),
             maxshape=(None, ),
             chunks=True,
-            compression="gzip")
+            compression="lzf")
         combined.require_dataset(
             name='white',
             dtype=dt,
             shape=(0,),
             maxshape=(None,),
             chunks=True,
-            compression="gzip")
+            compression="lzf")
         combined.require_dataset(
             name='black',
             dtype=dt,
             shape=(0,),
             maxshape=(None,),
             chunks=True,
-            compression="gzip")
+            compression="lzf")
 
         white = combined["white"]
         black = combined["black"]

@@ -63,7 +63,7 @@ class Game(object):
                     shape=(0,),
                     maxshape=(None,),
                     chunks=True,
-                    compression="gzip")
+                    compression="lzf")
             if white_name not in h5f:
                 h5f.require_dataset(
                     name=white_name,
@@ -71,7 +71,7 @@ class Game(object):
                     shape=(0,),
                     maxshape=(None,),
                     chunks=True,
-                    compression="gzip")
+                    compression="lzf")
             if black_name not in h5f:
                 h5f.require_dataset(
                     name=black_name,
@@ -79,7 +79,7 @@ class Game(object):
                     shape=(0,),
                     maxshape=(None,),
                     chunks=True,
-                    compression="gzip")
+                    compression="lzf")
 
             winner_color = self.winner_color()
             if winner_color == chess.WHITE:

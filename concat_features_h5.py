@@ -18,21 +18,21 @@ def hdf5_cancat(hdf5_files, output):
             shape=(0, 8, 8, 18),
             maxshape=(None, 8, 8, 18),
             chunks=True,
-            compression="gzip")
+            compression="lzf")
         combined.require_dataset(
             name='probs',
             dtype=np.float,
             shape=(0, 4096),
             maxshape=(None, 4096),
             chunks=True,
-            compression="gzip")
+            compression="lzf")
         combined.require_dataset(
             name='rewards',
             dtype=np.int8,
             shape=(0, 1),
             maxshape=(None, 1),
             chunks=True,
-            compression="gzip")
+            compression="lzf")
 
         features = combined["features"]
         actions = combined["probs"]

@@ -128,7 +128,7 @@ def save_pgn_to_hd5(file_path, pgn, game_result):
                 shape=(0, ),
                 maxshape=(None, ),
                 chunks=True,
-                compression="gzip")
+                compression="lzf")
         if "white" not in h5f:
             h5f.require_dataset(
                 name='white',
@@ -136,7 +136,7 @@ def save_pgn_to_hd5(file_path, pgn, game_result):
                 shape=(0,),
                 maxshape=(None,),
                 chunks=True,
-                compression="gzip")
+                compression="lzf")
         if "black" not in h5f:
             h5f.require_dataset(
                 name='black',
@@ -144,7 +144,7 @@ def save_pgn_to_hd5(file_path, pgn, game_result):
                 shape=(0,),
                 maxshape=(None,),
                 chunks=True,
-                compression="gzip")
+                compression="lzf")
 
         if game_result == "1-0":
             dest = h5f["white"]
@@ -193,7 +193,7 @@ def features_to_hd5(file_path, game_tree):
                 shape=(0, 8, 8, 18),
                 maxshape=(None, 8, 8, 18),
                 chunks=True,
-                compression="gzip")
+                compression="lzf")
         if "probs" not in h5f:
             h5f.require_dataset(
                 name='probs',
@@ -201,7 +201,7 @@ def features_to_hd5(file_path, game_tree):
                 shape=(0, 4096),
                 maxshape=(None, 4096),
                 chunks=True,
-                compression="gzip")
+                compression="lzf")
         if "rewards" not in h5f:
             h5f.require_dataset(
                 name='rewards',
@@ -209,7 +209,7 @@ def features_to_hd5(file_path, game_tree):
                 shape=(0, 1),
                 maxshape=(None, 1),
                 chunks=True,
-                compression="gzip")
+                compression="lzf")
 
         features = h5f["features"]
         actions = h5f["probs"]

@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import threading
 import h5py as h5
 import json
 from keras.optimizers import SGD
@@ -8,6 +9,50 @@ import keras.backend as K
 from keras.callbacks import ModelCheckpoint, Callback
 from policy import ResnetPolicy
 
+
+#################### Now make the data generator threadsafe ####################
+
+class threadsafe_iter:
+    """Takes an iterator/generator and makes it thread-safe by
+    serializing call to the `next` method of given iterator/generator.
+    """
+    def __init__(self, it):
+        self.it = it
+        self.lock = threading.Lock()
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        with self.lock:
+            return self.it.next()
+
+
+def threadsafe_generator(f):
+    """A decorator that takes a generator function and makes it thread-safe.
+    """
+    def g(*a, **kw):
+        return threadsafe_iter(f(*a, **kw))
+    return g
+
+
+@threadsafe_generator
+def batch_generator(train_data, start_index, end_index, batch_size):
+    # features of training data
+    dataset = h5.File(train_data)
+    feature_dataset = dataset["features"]
+    probs_dataset = dataset["probs"]
+    rewards_dataset = dataset["rewards"]
+    num_batches = int((end_index - start_index)/batch_size)
+
+    while True:
+        for i in range(num_batches):
+            begin = i*batch_size,
+            end = (i+1)*batch_size
+            yield (feature_dataset[begin:end], [probs_dataset[begin:end], rewards_dataset[begin:end]])
+
+
+########## Data generator is now threadsafe and should work with multiple workers ##########
 
 def shuffled_hdf5_batch_generator(feature_dataset,
                                   probs_dataset,
@@ -165,17 +210,27 @@ def run_training(cmd_line_args=None):
     # test_indices = shuffle_indices[n_train_data + n_val_data:]
 
     # create dataset generators
-    train_data_generator = shuffled_hdf5_batch_generator(
-        dataset["features"],
-        dataset["probs"],
-        dataset["rewards"],
-        train_indices,
+    # train_data_generator = shuffled_hdf5_batch_generator(
+    #     dataset["features"],
+    #     dataset["probs"],
+    #     dataset["rewards"],
+    #     train_indices,
+    #     args.minibatch)
+    # val_data_generator = shuffled_hdf5_batch_generator(
+    #     dataset["features"],
+    #     dataset["probs"],
+    #     dataset["rewards"],
+    #     val_indices,
+    #     args.minibatch)
+    train_data_generator = batch_generator(
+        args.train_data,
+        0,
+        n_train_data,
         args.minibatch)
     val_data_generator = shuffled_hdf5_batch_generator(
-        dataset["features"],
-        dataset["probs"],
-        dataset["rewards"],
-        val_indices,
+        args.train_data,
+        n_train_data,
+        n_train_data + n_val_data,
         args.minibatch)
 
     optimizer = SGD(lr=args.learning_rate, decay=args.decay, momentum=0.9)
@@ -201,7 +256,8 @@ def run_training(cmd_line_args=None):
         callbacks=[checkpointer, meta_writer],
         validation_data=val_data_generator,
         validation_steps=int(n_val_data/args.minibatch),
-        workers=2)
+        workers=2,
+        use_multiprocessing=True)
 
 
 if __name__ == '__main__':

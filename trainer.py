@@ -9,17 +9,14 @@ from keras.callbacks import ModelCheckpoint, Callback
 from policy import ResnetPolicy
 
 
-def shuffled_hdf5_batch_generator(train_data,
+def shuffled_hdf5_batch_generator(feature_dataset,
+                                  probs_dataset,
+                                  rewards_dataset,
                                   indices,
                                   batch_size):
     """A generator of batches of training data for use with the fit_generator function
     of Keras. Data is accessed in the order of the given indices for shuffling.
     """
-    dataset = h5.File(train_data)
-    feature_dataset = dataset["features"]
-    probs_dataset = dataset["probs"]
-    rewards_dataset = dataset["rewards"]
-
     f_batch_shape = (batch_size,) + feature_dataset.shape[1:]
     p_batch_shape = (batch_size, 4096)
     r_batch_shape = (batch_size, 1)
@@ -134,7 +131,6 @@ def run_training(cmd_line_args=None):
     n_train_data = n_train_data - (n_train_data % args.minibatch)
     n_val_data = n_total_data - n_train_data
     # n_test_data = n_total_data - (n_train_data + n_val_data)
-    dataset.close()
 
     # ensure output directory is available
     if not os.path.exists(args.out_directory):
@@ -170,11 +166,15 @@ def run_training(cmd_line_args=None):
 
     # create dataset generators
     train_data_generator = shuffled_hdf5_batch_generator(
-        args.train_data,
+        dataset["features"],
+        dataset["probs"],
+        dataset["rewards"],
         train_indices,
         args.minibatch)
     val_data_generator = shuffled_hdf5_batch_generator(
-        args.train_data,
+        dataset["features"],
+        dataset["probs"],
+        dataset["rewards"],
         val_indices,
         args.minibatch)
 
@@ -201,8 +201,7 @@ def run_training(cmd_line_args=None):
         callbacks=[checkpointer, meta_writer],
         validation_data=val_data_generator,
         validation_steps=int(n_val_data/args.minibatch),
-        workers=2,
-        use_multiprocessing=True)
+        workers=2)
 
 
 if __name__ == '__main__':

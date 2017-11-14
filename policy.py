@@ -130,7 +130,7 @@ class ResnetPolicy(object):
 
     @staticmethod
     def _policy_header(layer):
-        y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
+        y = layers.Conv2D(filters=128, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)

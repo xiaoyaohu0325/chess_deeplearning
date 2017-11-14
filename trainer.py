@@ -227,7 +227,7 @@ def run_training(cmd_line_args=None):
         0,
         n_train_data,
         args.minibatch)
-    val_data_generator = shuffled_hdf5_batch_generator(
+    val_data_generator = batch_generator(
         args.train_data,
         n_train_data,
         n_train_data + n_val_data,
@@ -255,9 +255,7 @@ def run_training(cmd_line_args=None):
         epochs=args.epochs,
         callbacks=[checkpointer, meta_writer],
         validation_data=val_data_generator,
-        validation_steps=int(n_val_data/args.minibatch),
-        workers=2,
-        use_multiprocessing=True)
+        validation_steps=int(n_val_data/args.minibatch))
 
 
 if __name__ == '__main__':

@@ -10,12 +10,15 @@ reg_control = 0.0001
 
 class ResnetPolicy(object):
 
-    def __init__(self, **kwargs):
+    def __init__(self, residual_blocks=10, num_cnn_filter=128, init_network=False):
         self.model = None
-        if kwargs.get('init_network', True):
+        self.residual_blocks = residual_blocks
+        self.num_cnn_filter = num_cnn_filter
+
+        if init_network:
             # self.__class__ refers to the subclass so that subclasses only
             # need to override create_network()
-            self.model = ResnetPolicy.create_network()
+            self.model = self.create_network()
             self.forward = self._model_forward()
 
     def _model_forward(self):
@@ -77,14 +80,13 @@ class ResnetPolicy(object):
         with open(json_file, 'w') as f:
             json.dump(object_specs, f)
 
-    @staticmethod
-    def create_network(residual_blocks=10):
+    def create_network(self):
         """Create the AlphaGo Zero neural network
         """
         inputs = layers.Input(shape=(8, 8, 18))
 
         # create first convolution layer of 256 filters of kernel size 3*3 with stride 1
-        first_convolution_layer = layers.Conv2D(filters=128,
+        first_convolution_layer = layers.Conv2D(filters=self.num_cnn_filter,
                                                 kernel_size=3,
                                                 strides=1,
                                                 padding='same',
@@ -95,30 +97,30 @@ class ResnetPolicy(object):
         previous_layer = first_convolution_layer
 
         # create residual blocks
-        for i in range(residual_blocks):
-            previous_layer = ResnetPolicy._residual_blocks(previous_layer)
+        for i in range(self.residual_blocks):
+            previous_layer = self._add_residual_blocks(previous_layer)
 
         # first out, a policy value of action probabilities
-        policy_output = ResnetPolicy._policy_header(previous_layer)
+        policy_from_output = self._from_policy_header(previous_layer)
+        policy_to_output = self._to_policy_header(previous_layer)
         # second out, a scalar value of winning
-        value_output = ResnetPolicy._value_head(previous_layer)
+        value_output = self._value_head(previous_layer)
 
-        return Model(inputs=inputs, outputs=[policy_output, value_output])
+        return Model(inputs=inputs, outputs=[policy_from_output, policy_to_output, value_output])
 
-    @staticmethod
-    def _residual_blocks(layer):
+    def _add_residual_blocks(self, layer):
         """Create the residual block
         """
         shortcut = layer
 
         # first convolution layer
-        y = layers.Conv2D(filters=128, kernel_size=3, strides=1, padding='same',
+        y = layers.Conv2D(filters=self.num_cnn_filter, kernel_size=3, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)
 
         # second convolution layer
-        y = layers.Conv2D(filters=128, kernel_size=3, strides=1, padding='same',
+        y = layers.Conv2D(filters=self.num_cnn_filter, kernel_size=3, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(y)
         y = layers.BatchNormalization()(y)
 
@@ -128,21 +130,31 @@ class ResnetPolicy(object):
 
         return y
 
-    @staticmethod
-    def _policy_header(layer):
-        y = layers.Conv2D(filters=128, kernel_size=1, strides=1, padding='same',
+    def _from_policy_header(self, layer):
+        y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)
         y = layers.Flatten()(y)
         # give a name for the out, out dimension is 64*63
-        y = layers.Dense(4096, activation="softmax", name="policy_output",
+        y = layers.Dense(64, activation="softmax", name="policy_from_output",
                          kernel_regularizer=regularizers.l2(reg_control))(y)
 
         return y
 
-    @staticmethod
-    def _value_head(layer):
+    def _to_policy_header(self, layer):
+        y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
+                          kernel_regularizer=regularizers.l2(reg_control))(layer)
+        y = layers.BatchNormalization()(y)
+        y = layers.LeakyReLU()(y)
+        y = layers.Flatten()(y)
+        # give a name for the out, out dimension is 64*63
+        y = layers.Dense(64, activation="softmax", name="policy_to_output",
+                         kernel_regularizer=regularizers.l2(reg_control))(y)
+
+        return y
+
+    def _value_head(self, layer):
         y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)

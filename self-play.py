@@ -3,13 +3,13 @@ from game_tree import TreeNode
 from timeit import default_timer as timer
 from preprocessing import game_converter
 
-simulations = 400
-depth = 8
+simulations = 100
+depth = 3
 max_moves = 300
 
 
 def play_a_game():
-    policy = ResnetPolicy.load_model("./out/model.json")
+    policy = ResnetPolicy.load_model("./out/model/model_2_128.json")
 
     for i in range(1):
         # start a new

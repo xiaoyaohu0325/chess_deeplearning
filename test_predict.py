@@ -31,7 +31,7 @@ class TestPredict(unittest.TestCase):
         print(output[1].shape)  # (1, 1)
 
     def test_search(self):
-        policy = ResnetPolicy.load_model("./out/model.json")
+        policy = ResnetPolicy.load_model("./out/model/model_2_128.json")
         root = TreeNode(None, policy)
 
         # for item in root.children.items():
@@ -48,9 +48,11 @@ class TestPredict(unittest.TestCase):
         print("predict elapsed ", end - start)
 
         root.play()
-        size = len(root.pi)
+        size = len(root.pi_from)
         for i in range(size):
-            if root.pi[i] > 0:
-                from_p = int(i/64)
-                to_p = i % 64
-                print("from ", chess.square_name(from_p), ", to ", chess.square_name(to_p), "probability ", root.pi[i])
+            if root.pi_from[i] > 0:
+                for j in range(size):
+                    if root.pi_to[j] > 0:
+                        print("from:", chess.square_name(i), ", to:", chess.square_name(j),
+                              "from_pi:", root.pi_from[i],
+                              "to_pi:", root.pi_to[j])

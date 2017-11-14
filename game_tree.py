@@ -42,9 +42,11 @@ class TreeNode(object):
         self.W = 0  # total action-value
         self.Q = 0  # mean action-value
         self.P = 0  # prior probability of selecting this node
-        self.prior_p_array = None  # evaluated probabilities in this state
+        self.prior_p_from = None    # evaluated probabilities in this state
+        self.prior_p_to = None
         self.u = 0
-        self.pi = np.zeros(4096)  # updated probabilities
+        self.pi_from = np.zeros(64, dtype=np.float)  # updated probabilities
+        self.pi_to = np.zeros(64, dtype=np.float)
         self.reward = 0
         # do move to update the board state, fen
         self._do_move()
@@ -123,13 +125,14 @@ class TreeNode(object):
         and each edge (sL, a) is initialised to
         {N(sL,a) = 0,W(sL,a) = 0,Q(sL,a) = 0,P(sL,a) = pa}; the value v is then backed up.
         """
-        if self.prior_p_array is None:
+        if self.prior_p_from is None:
             if self.policy is not None:
                 features = self.get_input_features()
                 output = self.policy.forward([features])
-                # shape of output[0] is (1, 4096), shape of output[1] is (1, 1)
-                self.prior_p_array = output[0][0]  # The first one is not rotated
-                self.reward = output[1][0][0]
+                # shape of output[0] and output[1] is (1, 64), shape of output[2] is (1, 1)
+                self.prior_p_from = output[0][0]
+                self.prior_p_to = output[1][0]
+                self.reward = output[2][0][0]
                 logging.debug("node %s, evaluate reward %f", self.get_msg(), self.reward)
             else:
                 raise ValueError("cannot evaluate if policy is None")
@@ -154,7 +157,7 @@ class TreeNode(object):
         # if self.board.is_game_over(claim_draw=True):
         #     return self
 
-        if self.prior_p_array is None:
+        if self.prior_p_from is None:
             # evaluate this node to get probabilities of legal moves
             self.evaluate()
 
@@ -165,7 +168,7 @@ class TreeNode(object):
                                 policy=self.policy,
                                 action=action)
             self.children[action] = sub_node
-            sub_node.set_prior_prob(self.prior_p_array[action[0]*64 + action[1]])
+            sub_node.set_prior_prob(self.prior_p_from[action[0]]*self.prior_p_to[action[1]])
 
     def get_input_features(self):
         """Generate input features
@@ -272,18 +275,24 @@ class TreeNode(object):
 
         for item in self.children.items():
             (move, node) = item
-            self.pi[move[0]*64 + move[1]] = node.get_pi()/total_n
+            value = node.get_pi()
+            self.pi_from[move[0]] += value
+            self.pi_to[move[1]] += value
+
+        self.pi_from = self.pi_from / total_n
+        self.pi_to = self.pi_to / total_n
 
     def get_pi(self):
         """At the end of the search AlphaGo Zero selects a move a to play in the root
         position s0, proportional to its exponentiated visit count
         """
-        temperature = 1  # first 30 moves
-        if self.depth > 30:
-            temperature = 50  # τ→0, 1/τ→a big number
-        if not self.is_root():
-            return pow(self.N, temperature)
-        return 1
+        # temperature = 1  # first 30 moves
+        # if self.depth > 30:
+        #     temperature = 50  # τ→0, 1/τ→a big number
+        # if not self.is_root():
+        #     return pow(self.N, temperature)
+        # return 1
+        return self.N
 
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).

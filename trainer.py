@@ -13,30 +13,20 @@ def shuffled_hdf5_batch_generator(feature_dataset,
                                   pi_from_dataset,
                                   pi_to_dataset,
                                   rewards_dataset,
-                                  indices,
+                                  start_idx,
+                                  end_idx,
                                   batch_size):
     """A generator of batches of training data for use with the fit_generator function
     of Keras. Data is accessed in the order of the given indices for shuffling.
     """
-    f_batch_shape = (batch_size,) + feature_dataset.shape[1:]
-    pi_batch_shape = (batch_size, 64)
-    r_batch_shape = (batch_size, 1)
-
-    f_batch = np.zeros(f_batch_shape)
-    from_batch = np.zeros(pi_batch_shape)
-    to_batch = np.zeros(pi_batch_shape)
-    r_batch = np.zeros(r_batch_shape)
-    batch_idx = 0
     while True:
-        for data_idx in indices:
-            f_batch[batch_idx] = feature_dataset[data_idx]
-            from_batch[batch_idx] = pi_from_dataset[data_idx]
-            to_batch[batch_idx] = pi_to_dataset[data_idx]
-            r_batch[batch_idx] = rewards_dataset[data_idx]
-            batch_idx += 1
-            if batch_idx == batch_size:
-                batch_idx = 0
-                yield (f_batch, [from_batch, to_batch, r_batch])
+        offset = start_idx
+        while offset < end_idx:
+            begin = offset
+            end = offset + batch_size
+            offset += batch_size
+            yield (feature_dataset[begin:end],
+                   [pi_from_dataset[begin:end], pi_to_dataset[begin:end], rewards_dataset[begin:end]])
 
 
 class MetadataWriterCallback(Callback):
@@ -169,20 +159,22 @@ def run_training(cmd_line_args=None):
     # test_indices = shuffle_indices[n_train_data + n_val_data:]
 
     # create dataset generators
-    # train_data_generator = shuffled_hdf5_batch_generator(
-    #     dataset["features"],
-    #     dataset["pi_from"],
-    #     dataset["pi_to"],
-    #     dataset["rewards"],
-    #     train_indices,
-    #     args.minibatch)
-    # val_data_generator = shuffled_hdf5_batch_generator(
-    #     dataset["features"],
-    #     dataset["pi_from"],
-    #     dataset["pi_to"],
-    #     dataset["rewards"],
-    #     val_indices,
-    #     args.minibatch)
+    train_data_generator = shuffled_hdf5_batch_generator(
+        dataset["features"],
+        dataset["pi_from"],
+        dataset["pi_to"],
+        dataset["rewards"],
+        0,
+        n_train_data,
+        args.minibatch)
+    val_data_generator = shuffled_hdf5_batch_generator(
+        dataset["features"],
+        dataset["pi_from"],
+        dataset["pi_to"],
+        dataset["rewards"],
+        n_train_data,
+        n_total_data,
+        args.minibatch)
 
     optimizer = SGD(lr=args.learning_rate, decay=args.decay, momentum=0.9)
 
@@ -204,31 +196,31 @@ def run_training(cmd_line_args=None):
     if args.verbose:
         print("STARTING TRAINING")
 
-    # model.fit_generator(
-    #     generator=train_data_generator,
-    #     steps_per_epoch=int(samples_per_epoch/args.minibatch),
-    #     epochs=args.epochs,
-    #     callbacks=[checkpointer, meta_writer],
-    #     validation_data=val_data_generator,
-    #     validation_steps=int(n_val_data/args.minibatch),
-    #     initial_epoch=args.init_epoch)
+    model.fit_generator(
+        generator=train_data_generator,
+        steps_per_epoch=int(samples_per_epoch/args.minibatch),
+        epochs=args.epochs,
+        callbacks=[checkpointer, meta_writer],
+        validation_data=val_data_generator,
+        validation_steps=int(n_val_data/args.minibatch),
+        initial_epoch=args.init_epoch)
 
-    model.fit(dataset["features"][0:n_train_data],
-              {
-                  'policy_from_output': dataset["pi_from"][0:n_train_data],
-                  'policy_to_output': dataset["pi_to"][0:n_train_data],
-                  'value_output': dataset["rewards"][0:n_train_data]
-              },
-              steps_per_epoch=int(samples_per_epoch/args.minibatch),
-              epochs=args.epochs,
-              callbacks=[checkpointer, meta_writer],
-              validation_data=(dataset["features"][n_train_data:], {
-                  'policy_from_output': dataset["pi_from"][n_train_data:],
-                  'policy_to_output': dataset["pi_to"][n_train_data:],
-                  'value_output': dataset["rewards"][n_train_data:]
-              }),
-              validation_steps=int(n_val_data/args.minibatch),
-              initial_epoch=args.init_epoch)
+    # model.fit(dataset["features"][0:n_train_data],
+    #           {
+    #               'policy_from_output': dataset["pi_from"][0:n_train_data],
+    #               'policy_to_output': dataset["pi_to"][0:n_train_data],
+    #               'value_output': dataset["rewards"][0:n_train_data]
+    #           },
+    #           steps_per_epoch=int(samples_per_epoch/args.minibatch),
+    #           epochs=args.epochs,
+    #           callbacks=[checkpointer, meta_writer],
+    #           validation_data=(dataset["features"][n_train_data:], {
+    #               'policy_from_output': dataset["pi_from"][n_train_data:],
+    #               'policy_to_output': dataset["pi_to"][n_train_data:],
+    #               'value_output': dataset["rewards"][n_train_data:]
+    #           }),
+    #           validation_steps=int(n_val_data/args.minibatch),
+    #           initial_epoch=args.init_epoch)
 
 
 if __name__ == '__main__':

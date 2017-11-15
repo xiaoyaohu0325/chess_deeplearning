@@ -107,6 +107,7 @@ def run_training(cmd_line_args=None):
     parser.add_argument("--verbose", "-v", help="Turn on verbose mode", default=False, action="store_true")  # noqa: E501
     # slightly fancier args
     parser.add_argument("--weights", help="Name of a .h5 weights file (in the output directory) to load to resume training", default=None)  # noqa: E501
+    parser.add_argument("--init-epoch", help="Init epoch. Default: 0", type=int, default=0)  # noqa: E501
     parser.add_argument("--train-val-test", help="Fraction of data to use for training/val/test. Must sum to 1. Invalid if restarting training", nargs=3, type=float, default=[0.93, .05, .02])  # noqa: E501
 
     if cmd_line_args is None:
@@ -148,40 +149,40 @@ def run_training(cmd_line_args=None):
     # load precomputed random-shuffle indices or create them
     # TODO - save each train/val/test indices separately so there's no danger of
     # changing args.train_val_test when resuming
-    shuffle_file = os.path.join(args.out_directory, "shuffle.npz")
-    if os.path.exists(shuffle_file) and resume:
-        with open(shuffle_file, "rb") as f:
-            shuffle_indices = np.load(f)
-        if args.verbose:
-            print("loading previous data shuffling indices")
-    else:
-        # create shuffled indices
-        shuffle_indices = np.random.permutation(n_total_data)
-        with open(shuffle_file, "wb") as f:
-            np.save(f, shuffle_indices)
-        if args.verbose:
-            print("created new data shuffling indices")
+    # shuffle_file = os.path.join(args.out_directory, "shuffle.npz")
+    # if os.path.exists(shuffle_file) and resume:
+    #     with open(shuffle_file, "rb") as f:
+    #         shuffle_indices = np.load(f)
+    #     if args.verbose:
+    #         print("loading previous data shuffling indices")
+    # else:
+    #     # create shuffled indices
+    #     shuffle_indices = np.random.permutation(n_total_data)
+    #     with open(shuffle_file, "wb") as f:
+    #         np.save(f, shuffle_indices)
+    #     if args.verbose:
+    #         print("created new data shuffling indices")
     # training indices are the first consecutive set of shuffled indices, val
     # next, then test gets the remainder
-    train_indices = shuffle_indices[0:n_train_data]
-    val_indices = shuffle_indices[n_train_data:n_train_data + n_val_data]
+    # train_indices = shuffle_indices[0:n_train_data]
+    # val_indices = shuffle_indices[n_train_data:n_train_data + n_val_data]
     # test_indices = shuffle_indices[n_train_data + n_val_data:]
 
     # create dataset generators
-    train_data_generator = shuffled_hdf5_batch_generator(
-        dataset["features"],
-        dataset["pi_from"],
-        dataset["pi_to"],
-        dataset["rewards"],
-        train_indices,
-        args.minibatch)
-    val_data_generator = shuffled_hdf5_batch_generator(
-        dataset["features"],
-        dataset["pi_from"],
-        dataset["pi_to"],
-        dataset["rewards"],
-        val_indices,
-        args.minibatch)
+    # train_data_generator = shuffled_hdf5_batch_generator(
+    #     dataset["features"],
+    #     dataset["pi_from"],
+    #     dataset["pi_to"],
+    #     dataset["rewards"],
+    #     train_indices,
+    #     args.minibatch)
+    # val_data_generator = shuffled_hdf5_batch_generator(
+    #     dataset["features"],
+    #     dataset["pi_from"],
+    #     dataset["pi_to"],
+    #     dataset["rewards"],
+    #     val_indices,
+    #     args.minibatch)
 
     optimizer = SGD(lr=args.learning_rate, decay=args.decay, momentum=0.9)
 
@@ -203,13 +204,31 @@ def run_training(cmd_line_args=None):
     if args.verbose:
         print("STARTING TRAINING")
 
-    model.fit_generator(
-        generator=train_data_generator,
-        steps_per_epoch=int(samples_per_epoch/args.minibatch),
-        epochs=args.epochs,
-        callbacks=[checkpointer, meta_writer],
-        validation_data=val_data_generator,
-        validation_steps=int(n_val_data/args.minibatch))
+    # model.fit_generator(
+    #     generator=train_data_generator,
+    #     steps_per_epoch=int(samples_per_epoch/args.minibatch),
+    #     epochs=args.epochs,
+    #     callbacks=[checkpointer, meta_writer],
+    #     validation_data=val_data_generator,
+    #     validation_steps=int(n_val_data/args.minibatch),
+    #     initial_epoch=args.init_epoch)
+
+    model.fit(dataset["features"][0:n_train_data],
+              {
+                  'policy_from_output': dataset["pi_from"][0:n_train_data],
+                  'policy_to_output': dataset["pi_to"][0:n_train_data],
+                  'value_output': dataset["rewards"][0:n_train_data]
+              },
+              steps_per_epoch=int(samples_per_epoch/args.minibatch),
+              epochs=args.epochs,
+              callbacks=[checkpointer, meta_writer],
+              validation_data=(dataset["features"][n_train_data:], {
+                  'policy_from_output': dataset["pi_from"][n_train_data:],
+                  'policy_to_output': dataset["pi_to"][n_train_data:],
+                  'value_output': dataset["rewards"][n_train_data:]
+              }),
+              validation_steps=int(n_val_data/args.minibatch),
+              initial_epoch=args.init_epoch)
 
 
 if __name__ == '__main__':

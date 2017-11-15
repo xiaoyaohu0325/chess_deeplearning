@@ -79,6 +79,9 @@ def hdf5_process(in_file, out_file):
                         from_batch[i, from_square] += value
                         to_batch[i, to_square] += value
 
+                from_batch[i] = from_batch[i]/np.sum(from_batch[i])
+                to_batch[i] = to_batch[i]/np.sum(to_batch[i])
+
             features[offset:offset+read_size] = feature_batch
             actions_from[offset:offset+read_size] = from_batch
             actions_to[offset:offset+read_size] = to_batch

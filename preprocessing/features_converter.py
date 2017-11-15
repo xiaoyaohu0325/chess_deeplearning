@@ -4,6 +4,8 @@ import os
 import argparse
 import math
 
+batch_size = 5000
+
 
 def hdf5_process(in_file, out_file):
     # initialise the output
@@ -52,19 +54,38 @@ def hdf5_process(in_file, out_file):
         actions_to = combined["pi_to"]
         rates = combined["rewards"]
 
-        for i in range(size):
-            features[i] = features_data[i]
-            rates[i] = rewards_data[i]
-            actions_from[i] = np.zeros(64, dtype=np.float)
-            actions_to[i] = np.zeros(64, dtype=np.float)
-            probs = actions_data[i]     # size is 4096
-            for j in range(len(probs)):
-                if probs[j] > 0:
-                    value = math.sqrt(probs[j])
-                    from_square = int(j/64)
-                    to_square = j % 64
-                    actions_from[i, from_square] = value
-                    actions_to[i, to_square] = value
+        offset = 0
+
+        while offset < size:
+            if size - offset >= batch_size:
+                read_size = batch_size
+            else:
+                read_size = size - offset
+
+            feature_batch = np.zeros((read_size, 8, 8, 18))
+            from_batch = np.zeros((read_size, 64))
+            to_batch = np.zeros((read_size, 64))
+            rate_batch = np.zeros((read_size, 1))
+
+            for i in range(read_size):
+                feature_batch[i] = features_data[offset + i]
+                rate_batch[i] = rewards_data[offset + i]
+                probs = actions_data[offset + i]     # size is 4096
+                for j in range(len(probs)):
+                    if probs[j] > 0:
+                        value = math.sqrt(probs[j])
+                        from_square = int(j/64)
+                        to_square = j % 64
+                        from_batch[i, from_square] = value
+                        to_batch[i, to_square] = value
+
+            features[offset:offset+read_size] = feature_batch
+            actions_from[offset:offset+read_size] = from_batch
+            actions_to[offset:offset+read_size] = to_batch
+            rates[offset:offset+read_size] = rate_batch
+
+            offset += read_size
+            print("percentage:", offset/size)
 
         fileread.close()
 

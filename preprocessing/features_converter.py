@@ -76,8 +76,8 @@ def hdf5_process(in_file, out_file):
                         value = math.sqrt(probs[j])
                         from_square = int(j/64)
                         to_square = j % 64
-                        from_batch[i, from_square] = value
-                        to_batch[i, to_square] = value
+                        from_batch[i, from_square] += value
+                        to_batch[i, to_square] += value
 
             features[offset:offset+read_size] = feature_batch
             actions_from[offset:offset+read_size] = from_batch

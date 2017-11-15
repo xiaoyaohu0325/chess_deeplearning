@@ -20,13 +20,17 @@ def shuffled_hdf5_batch_generator(feature_dataset,
     of Keras. Data is accessed in the order of the given indices for shuffling.
     """
     while True:
-        offset = start_idx
-        while offset < end_idx:
-            begin = offset
-            end = offset + batch_size
-            offset += batch_size
-            yield (feature_dataset[begin:end],
-                   [pi_from_dataset[begin:end], pi_to_dataset[begin:end], rewards_dataset[begin:end]])
+        indexes = np.arange(start=start_idx, stop=end_idx)
+        np.random.shuffle(indexes)
+        imax = int(len(indexes) / batch_size)
+
+        for i in range(imax):
+            f_batch = [feature_dataset[k] for k in indexes[i*batch_size:(i+1)*batch_size]]
+            p_from_batch = [pi_from_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
+            p_to_batch = [pi_to_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
+            r_batch = [rewards_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
+
+            yield (f_batch, [p_from_batch, p_to_batch, r_batch])
 
 
 class MetadataWriterCallback(Callback):

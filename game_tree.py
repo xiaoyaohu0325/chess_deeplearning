@@ -42,11 +42,21 @@ class TreeNode(object):
         self.W = 0  # total action-value
         self.Q = 0  # mean action-value
         self.P = 0  # prior probability of selecting this node
-        self.prior_p_from = None    # evaluated probabilities in this state
-        self.prior_p_to = None
+        """
+        self.prior_p shape is (7,64)
+        The order is the same as chess
+        PIECE_TYPES = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING] = range(1, 7)
+        0. p of from_square
+        1. p of pawn's to_square
+        2. p of knight's to_square
+        3. p of bishop's to_square
+        4. p of rook's to_square
+        5. p of queue's to_square
+        6. p of king's to_square
+        """
+        self.prior_p = None
         self.u = 0
-        self.pi_from = np.zeros(64, dtype=np.float)  # updated probabilities
-        self.pi_to = np.zeros(64, dtype=np.float)
+        self.pi = np.zeros((7, 64), dtype=np.float)
         self.reward = 0
         # do move to update the board state, fen
         self._do_move()
@@ -118,21 +128,19 @@ class TreeNode(object):
 
     def evaluate(self):
         """The leaf node sL is added to a queue for neural network evaluation,
-        (di(p), v) = f(di(sL)), where di is a dihedral reflection or rotation selected
-        uniformly at random from i between [1..8].
+        (di(p), v) = f(di(sL)),
         Positions in the queue are evaluated by the neural network using a mini-batch size of 8;
         the search thread is locked until evaluation completes. The leaf node is expanded
         and each edge (sL, a) is initialised to
         {N(sL,a) = 0,W(sL,a) = 0,Q(sL,a) = 0,P(sL,a) = pa}; the value v is then backed up.
         """
-        if self.prior_p_from is None:
+        if self.prior_p is None:
             if self.policy is not None:
                 features = self.get_input_features()
                 output = self.policy.forward([features])
-                # shape of output[0] and output[1] is (1, 64), shape of output[2] is (1, 1)
-                self.prior_p_from = output[0][0]
-                self.prior_p_to = output[1][0]
-                self.reward = output[2][0][0]
+                # shape of output[0] is (1, 64*7), shape of output[2] is (1, 1)
+                self.prior_p = np.reshape(output[0][0], (7, 64))
+                self.reward = output[1][0][0]
                 logging.debug("node %s, evaluate reward %f", self.get_msg(), self.reward)
             else:
                 raise ValueError("cannot evaluate if policy is None")
@@ -157,18 +165,23 @@ class TreeNode(object):
         # if self.board.is_game_over(claim_draw=True):
         #     return self
 
-        if self.prior_p_from is None:
+        if self.prior_p is None:
             # evaluate this node to get probabilities of legal moves
             self.evaluate()
 
         for move in self.board.generate_legal_moves():
             action = (move.from_square, move.to_square)
+            p_from = self.prior_p[0][move.from_square]
+            p_to = 0
+            piece_type = self.board.piece_type_at(move.from_square)
+            if piece_type is not None:
+                p_to = self.prior_p[piece_type][move.to_square]
 
             sub_node = TreeNode(parent=self,
                                 policy=self.policy,
                                 action=action)
             self.children[action] = sub_node
-            sub_node.set_prior_prob(self.prior_p_from[action[0]]*self.prior_p_to[action[1]])
+            sub_node.set_prior_prob(p_from*p_to)
 
     def get_input_features(self):
         """Generate input features
@@ -268,31 +281,23 @@ class TreeNode(object):
         return self.Q + self.u
 
     def update_pi(self):
-        total_n = 0.
-        for item in self.children.items():
-            (move, node) = item
-            total_n += node.get_pi()
-
-        for item in self.children.items():
-            (move, node) = item
-            value = node.get_pi()
-            self.pi_from[move[0]] += value
-            self.pi_to[move[1]] += value
-
-        self.pi_from = self.pi_from / total_n
-        self.pi_to = self.pi_to / total_n
-
-    def get_pi(self):
-        """At the end of the search AlphaGo Zero selects a move a to play in the root
+        """At the end of the search selects a move a to play in the root
         position s0, proportional to its exponentiated visit count
         """
-        # temperature = 1  # first 30 moves
-        # if self.depth > 30:
-        #     temperature = 50  # τ→0, 1/τ→a big number
-        # if not self.is_root():
-        #     return pow(self.N, temperature)
-        # return 1
-        return self.N
+        temperature = 1  # first 30 moves
+        if self.depth > 30:
+            temperature = 50  # τ→0, 1/τ→a big number
+
+        for item in self.children.items():
+            (move, node) = item
+            piece_type = self.board.piece_type_at(move[0])
+            self.pi[0][move[0]] += 1
+            self.pi[piece_type][move[1]] += 1
+
+        for i in range(self.pi.shape[0]):
+            total = np.sum([item**temperature for item in self.pi[i]])
+            if total > 0:
+                self.pi[i] = [item**temperature/total for item in self.pi[i]]
 
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).

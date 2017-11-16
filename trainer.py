@@ -4,9 +4,28 @@ import h5py as h5
 import json
 from keras.optimizers import SGD
 from keras import losses
-import keras.backend as K
 from keras.callbacks import ModelCheckpoint, Callback
 from policy import ResnetPolicy
+
+
+def hdf5_batch_generator(feature_dataset,
+                         pi_from_dataset,
+                         pi_to_dataset,
+                         rewards_dataset,
+                         start_idx,
+                         end_idx,
+                         batch_size):
+    """A generator of batches of training data for use with the fit_generator function
+    of Keras. Data is accessed in the order of the given indices for shuffling.
+    """
+    while True:
+        offset = start_idx
+        while offset < end_idx:
+            begin = offset
+            end = offset + batch_size
+            offset += batch_size
+            yield (feature_dataset[begin:end],
+                   [pi_from_dataset[begin:end], pi_to_dataset[begin:end], rewards_dataset[begin:end]])
 
 
 def shuffled_hdf5_batch_generator(feature_dataset,
@@ -30,7 +49,10 @@ def shuffled_hdf5_batch_generator(feature_dataset,
             p_to_batch = [pi_to_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
             r_batch = [rewards_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
 
-            yield (f_batch, [p_from_batch, p_to_batch, r_batch])
+            yield (f_batch.reshape((batch_size, 8, 8, 18)), [
+                p_from_batch.reshape((batch_size, 64)),
+                p_to_batch.reshape((batch_size, 64)),
+                r_batch.reshape((batch_size, 1))])
 
 
 class MetadataWriterCallback(Callback):
@@ -180,7 +202,7 @@ def run_training(cmd_line_args=None):
         n_total_data,
         args.minibatch)
 
-    optimizer = SGD(lr=args.learning_rate, decay=args.decay, momentum=0.9)
+    optimizer = SGD(lr=args.learning_rate, momentum=0.9)
 
     # define loss functions for each output parameter, names are set in the definition
     # of output layer.

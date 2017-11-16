@@ -175,11 +175,10 @@ def convert_game(game_tree):
     current_node = root_node
     while current_node is not None:
         features = current_node.get_input_features()
-        pi_from = current_node.pi_from
-        pi_to = current_node.pi_to
+        pi = np.reshape(current_node.pi, (448,))
         r = current_node.reward
         current_node = current_node.next_node()
-        yield (features, pi_from, pi_to, r)
+        yield (features, pi, r)
 
 
 def features_to_hd5(file_path, game_tree):
@@ -195,20 +194,12 @@ def features_to_hd5(file_path, game_tree):
                 maxshape=(None, 8, 8, 18),
                 chunks=True,
                 compression="lzf")
-        if "pi_from" not in h5f:
+        if "pi" not in h5f:
             h5f.require_dataset(
-                name='pi_from',
+                name='pi',
                 dtype=np.float,
-                shape=(0, 64),
-                maxshape=(None, 64),
-                chunks=True,
-                compression="lzf")
-        if "pi_to" not in h5f:
-            h5f.require_dataset(
-                name='pi_to',
-                dtype=np.float,
-                shape=(0, 64),
-                maxshape=(None, 64),
+                shape=(0, 448),
+                maxshape=(None, 448),
                 chunks=True,
                 compression="lzf")
         if "rewards" not in h5f:
@@ -221,19 +212,16 @@ def features_to_hd5(file_path, game_tree):
                 compression="lzf")
 
         features = h5f["features"]
-        action_from = h5f["pi_from"]
-        action_to = h5f["pi_to"]
+        actions = h5f["pi"]
         rates = h5f["rewards"]
         size = len(features)
 
-        for state, pi_from, pi_to, r in convert_game(game_tree):
+        for state, pi, r in convert_game(game_tree):
             features.resize((size + 1, 8, 8, 18))
-            action_from.resize((size + 1, 64))
-            action_to.resize((size + 1, 64))
+            actions.resize((size + 1, 448))
             rates.resize((size + 1, 1))
             features[size] = state
-            action_from[size] = pi_from
-            action_to[size] = pi_to
+            actions[size] = pi
             rates[size] = r
             size += 1
 

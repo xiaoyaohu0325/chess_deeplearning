@@ -101,12 +101,11 @@ class ResnetPolicy(object):
             previous_layer = self._add_residual_blocks(previous_layer)
 
         # first out, a policy value of action probabilities
-        policy_from_output = self._from_policy_header(previous_layer)
-        policy_to_output = self._to_policy_header(previous_layer)
+        policy_output = self._policy_header(previous_layer)
         # second out, a scalar value of winning
         value_output = self._value_head(previous_layer)
 
-        return Model(inputs=inputs, outputs=[policy_from_output, policy_to_output, value_output])
+        return Model(inputs=inputs, outputs=[policy_output, value_output])
 
     def _add_residual_blocks(self, layer):
         """Create the residual block
@@ -130,26 +129,14 @@ class ResnetPolicy(object):
 
         return y
 
-    def _from_policy_header(self, layer):
-        y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
+    def _policy_header(self, layer):
+        y = layers.Conv2D(filters=16, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)
         y = layers.Flatten()(y)
         # give a name for the out, out dimension is 64*63
-        y = layers.Dense(64, activation="softmax", name="policy_from_output",
-                         kernel_regularizer=regularizers.l2(reg_control))(y)
-
-        return y
-
-    def _to_policy_header(self, layer):
-        y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
-                          kernel_regularizer=regularizers.l2(reg_control))(layer)
-        y = layers.BatchNormalization()(y)
-        y = layers.LeakyReLU()(y)
-        y = layers.Flatten()(y)
-        # give a name for the out, out dimension is 64*63
-        y = layers.Dense(64, activation="softmax", name="policy_to_output",
+        y = layers.Dense(448, activation="softmax", name="policy_output",
                          kernel_regularizer=regularizers.l2(reg_control))(y)
 
         return y

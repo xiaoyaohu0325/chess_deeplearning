@@ -20,17 +20,10 @@ def hdf5_cancat(hdf5_files, output):
             chunks=True,
             compression="lzf")
         combined.require_dataset(
-            name='pi_from',
+            name='pi',
             dtype=np.float,
-            shape=(0, 64),
-            maxshape=(None, 64),
-            chunks=True,
-            compression="lzf")
-        combined.require_dataset(
-            name='pi_to',
-            dtype=np.float,
-            shape=(0, 64),
-            maxshape=(None, 64),
+            shape=(0, 448),
+            maxshape=(None, 448),
             chunks=True,
             compression="lzf")
         combined.require_dataset(
@@ -42,15 +35,13 @@ def hdf5_cancat(hdf5_files, output):
             compression="lzf")
 
         features = combined["features"]
-        actions_from = combined["pi_from"]
-        actions_to = combined["pi_to"]
+        actions = combined["pi"]
         rates = combined["rewards"]
 
         for filename in hdf5_files:
             fileread = h5py.File(filename, 'r')
             features_data = fileread['features']
-            actions_from_data = fileread['pi_from']
-            actions_to_data = fileread['pi_to']
+            actions_data = fileread['pi']
             rewards_data = fileread['rewards']
 
             start = len(features)
@@ -64,13 +55,11 @@ def hdf5_cancat(hdf5_files, output):
                     read_size = end - start
 
                 features.resize((start+read_size, 8, 8, 18))
-                actions_from.resize((start+read_size, 64))
-                actions_to.resize((start+read_size, 64))
+                actions.resize((start+read_size, 448))
                 rates.resize((start+read_size, 1))
 
                 features[start:start+read_size] = features_data[offset:offset+read_size]
-                actions_from[start:start+read_size] = actions_from_data[offset:offset+read_size]
-                actions_to[start:start + read_size] = actions_to_data[offset:offset + read_size]
+                actions[start:start+read_size] = actions_data[offset:offset+read_size]
                 rates[start:start+read_size] = rewards_data[offset:offset+read_size]
 
                 start += read_size

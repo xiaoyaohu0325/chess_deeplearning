@@ -2,10 +2,10 @@ from policy import ResnetPolicy
 from game_tree import TreeNode
 from timeit import default_timer as timer
 from preprocessing import game_converter
+import logging
 
 simulations = 100
 depth = 3
-max_moves = 300
 
 
 def play_a_game():
@@ -24,13 +24,10 @@ def play_a_game():
             next_node = next_node.play()
             moves += 1
             print('search move ', end_search - start_search)
-            if moves > max_moves or next_node.board.is_game_over(claim_draw=True):
+            if next_node.board.is_game_over(claim_draw=True):
                 break
 
-        if moves > max_moves:
-            next_node.feed_back_winner(force=True)
-        else:
-            next_node.feed_back_winner()
+        next_node.feed_back_winner()
 
         game_converter.save_pgn_to_hd5(file_path="./out/self_play/test_pgn.h5",
                                        pgn=next_node.export_pgn_str(),
@@ -48,7 +45,7 @@ def search_move(s0_node, n_simulation, n_depth):
         # step 2: expand an evaluate
         reward = selected_node.evaluate()
         # step 3: backup
-        selected_node.update_recursive(reward)
+        selected_node.update_recursive(reward, s0_node.depth)
 
 
 def run_self_play():
@@ -65,4 +62,5 @@ def run_self_play():
 
 if __name__ == '__main__':
     # multiprocessing.freeze_support()
+    logging.basicConfig(filename='./out/predict.log', level=logging.DEBUG)
     run_self_play()

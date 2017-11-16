@@ -53,4 +53,4 @@ class AIPlayer(Player):
             # step 2: expand an evaluate
             reward = selected_node.evaluate()
             # step 3: backup
-            selected_node.update_recursive(reward)
+            selected_node.update_recursive(reward, tree_node.depth)

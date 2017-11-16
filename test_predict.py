@@ -42,7 +42,7 @@ class TestPredict(unittest.TestCase):
         for i in range(800):
             selected_node = root.select(depth=2)
             reward = selected_node.evaluate()
-            selected_node.update_recursive(reward)
+            selected_node.update_recursive(reward, 0)
 
         end = timer()
         print("predict elapsed ", end - start)

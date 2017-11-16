@@ -25,15 +25,14 @@ def play_game(num_game=1, pid=0):
         next_node.feed_back_winner()
         result = next_node.board.result(claim_draw=True)
 
-        if result != "1/2-1/2":
-            games += 1
-            end = timer()
-            print("game", games, "finished!  elapsed", end - start, ", round:", next_node.depth, 'result:', result)
-            game_converter.save_pgn_to_hd5(file_path="./out/self_play/uniform/pgn_" + pid + ".h5",
-                                           pgn=next_node.export_pgn_str(),
-                                           game_result=result)
-            game_converter.features_to_hd5(file_path="./out/self_play/uniform/features_" + pid + ".h5",
-                                           game_tree=root_node)
+        games += 1
+        end = timer()
+        print("game", games, "finished!  elapsed", end - start, ", round:", next_node.depth, 'result:', result)
+        game_converter.save_pgn_to_hd5(file_path="./out/self_play/uniform/pgn_" + pid + ".h5",
+                                       pgn=next_node.export_pgn_str(),
+                                       game_result=result)
+        game_converter.features_to_hd5(file_path="./out/self_play/uniform/features_" + pid + ".h5",
+                                       game_tree=root_node)
 
 
 def play_a_move(s0_node):
@@ -49,12 +48,13 @@ def play_a_move(s0_node):
         s0_node.children[action] = sub_node
         sub_node.set_prior_prob(1.0/len(actions))
 
-    # step 2: select a move
-    (action, selected_node) = max(s0_node.children.items(), key=lambda act_node: act_node[1].get_value())
     # step 3: update pi
     for item in s0_node.children.items():
         (move, node) = item
         s0_node.pi[move[0] * 64 + move[1]] = node.P
+
+    # step 2: select a move
+    (action, selected_node) = max(s0_node.children.items(), key=lambda act_node: act_node[1].get_value())
 
     # step 4: play the selected move
     s0_node.children.clear()

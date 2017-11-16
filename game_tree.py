@@ -5,7 +5,7 @@ from preprocessing import game_converter
 import logging
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-C_PUCT = 5
+C_PUCT = 50
 
 
 class TreeNode(object):
@@ -235,15 +235,15 @@ class TreeNode(object):
         if self.depth == 1:
             logging.debug("weight after update: %s", self._weights())
 
-    def update_recursive(self, leaf_value):
+    def update_recursive(self, leaf_value, root_depth):
         """Like a call to update(), but applied recursively for all ancestors.
 
         Note: it is important that this happens from the root downward so that 'parent' visit
         counts are correct.
         """
-        # If it is not root, this node's parent should be updated first.
-        if not self.is_root():
-            self.parent.update_recursive(leaf_value)
+        # update upward until the s0 node
+        if self.depth > root_depth:
+            self.parent.update_recursive(leaf_value, root_depth)
         self.backup(leaf_value)
 
     def feed_back_winner(self, force=False):
@@ -291,8 +291,8 @@ class TreeNode(object):
         for item in self.children.items():
             (move, node) = item
             piece_type = self.board.piece_type_at(move[0])
-            self.pi[0][move[0]] += 1
-            self.pi[piece_type][move[1]] += 1
+            self.pi[0][move[0]] += node.N
+            self.pi[piece_type][move[1]] += node.N
 
         for i in range(self.pi.shape[0]):
             total = np.sum([item**temperature for item in self.pi[i]])

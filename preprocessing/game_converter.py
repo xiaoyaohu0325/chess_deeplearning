@@ -173,10 +173,16 @@ def convert_game(game_tree):
 
     # iterate moves until game end or leaf node arrived
     current_node = root_node
-    while current_node is not None:
+    while not current_node.is_leaf():
         features = current_node.get_input_features()
-        pi = np.reshape(current_node.pi, (448,))
         r = current_node.reward
+        pi = np.reshape(current_node.pi, (448,))
+        # normalize
+        total = np.sum(pi)
+        if total == 0:
+            print("pi sum is 0")
+        else:
+            pi = pi/total
         current_node = current_node.next_node()
         yield (features, pi, r)
 

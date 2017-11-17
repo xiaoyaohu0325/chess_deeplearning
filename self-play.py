@@ -3,6 +3,7 @@ from game_tree import TreeNode
 from timeit import default_timer as timer
 from preprocessing import game_converter
 import logging
+import chess
 
 simulations = 100
 depth = 3
@@ -38,7 +39,15 @@ def play_a_game():
         print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth)
 
 
+def _print_node_info(node):
+    for (action, subnode) in node.children.items():
+        from_square_name = chess.square_name(action[0])
+        to_square_name = chess.square_name(action[1])
+        logging.info("move: %s%s, value: %s", from_square_name, to_square_name, subnode._weights())
+
+
 def search_move(s0_node, n_simulation, n_depth):
+    s0_node.before_search()
     for i in range(n_simulation):
         # step 1: select to time step L
         selected_node = s0_node.select(depth=n_depth)
@@ -46,6 +55,9 @@ def search_move(s0_node, n_simulation, n_depth):
         reward = selected_node.evaluate()
         # step 3: backup
         selected_node.update_recursive(reward, s0_node.depth)
+        # if s0_node.depth == 50:
+        #     logging.info("iteration %d", i)
+        #     _print_node_info(s0_node)
 
 
 def run_self_play():
@@ -62,5 +74,5 @@ def run_self_play():
 
 if __name__ == '__main__':
     # multiprocessing.freeze_support()
-    logging.basicConfig(filename='./out/predict.log', level=logging.DEBUG)
+    # logging.basicConfig(filename='./out/predict.log', level=logging.INFO)
     run_self_play()

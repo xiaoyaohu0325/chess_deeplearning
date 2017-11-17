@@ -7,20 +7,20 @@ from game_tree import TreeNode
 import chess
 import logging
 
-logging.basicConfig(filename='./out/predict.log', level=logging.DEBUG)
+logging.basicConfig(filename='./out/predict.log', level=logging.INFO)
 
 
 class TestPredict(unittest.TestCase):
 
     def test_predict(self):
-        policy = ResnetPolicy.load_model("./out/model.json")
+        policy = ResnetPolicy.load_model("./out/model/model_2_128.json")
 
         fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
 
         to_predict = game_converter.fen_to_features(fen)
         print(to_predict.shape)
-        for i in range(18):
-            print(to_predict[:, :, i])
+        # for i in range(18):
+        #     print(to_predict[:, :, i])
 
         start = timer()
         output = policy.forward([to_predict])
@@ -29,6 +29,10 @@ class TestPredict(unittest.TestCase):
         print("output length: ", len(output))
         print(output[0].shape)  # (1, 362)
         print(output[1].shape)  # (1, 1)
+
+        prior_p = np.reshape(output[0][0], (7, 64))
+        print(prior_p[0])
+        print(np.sum(prior_p[0]))
 
     def test_search(self):
         policy = ResnetPolicy.load_model("./out/model/model_2_128.json")
@@ -40,19 +44,17 @@ class TestPredict(unittest.TestCase):
         #     print("from ", chess.square_name(action[0]), ", to ", chess.square_name(action[1]))
         start = timer()
         for i in range(800):
-            selected_node = root.select(depth=2)
+            selected_node = root.select(depth=3)
             reward = selected_node.evaluate()
             selected_node.update_recursive(reward, 0)
+            logging.info("iteration %d", i)
+            self._print_node_info(root)
 
         end = timer()
         print("predict elapsed ", end - start)
 
-        root.play()
-        size = len(root.pi_from)
-        for i in range(size):
-            if root.pi_from[i] > 0:
-                for j in range(size):
-                    if root.pi_to[j] > 0:
-                        print("from:", chess.square_name(i), ", to:", chess.square_name(j),
-                              "from_pi:", root.pi_from[i],
-                              "to_pi:", root.pi_to[j])
+    def _print_node_info(self, node):
+        for (action, subnode) in node.children.items():
+            from_square_name = chess.square_name(action[0])
+            to_square_name = chess.square_name(action[1])
+            logging.info("move: %s%s, value: %s", from_square_name, to_square_name, subnode._weights())

@@ -5,7 +5,7 @@ from preprocessing import game_converter
 import logging
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-C_PUCT = 50
+C_PUCT = 5
 
 
 class TreeNode(object):
@@ -104,6 +104,18 @@ class TreeNode(object):
         self.children[action] = sub_node
         return sub_node
 
+    def before_search(self):
+        self.N = 0
+        self.W = 0
+        self.Q = 0
+        self.u = 0
+
+        if self.is_leaf():
+            return
+
+        for subnode in self.children.values():
+            subnode.before_search()
+
     def select(self, depth=1):
         """Select action among children that gives maximum action value, Q plus bonus u(P).
 
@@ -169,19 +181,27 @@ class TreeNode(object):
             # evaluate this node to get probabilities of legal moves
             self.evaluate()
 
+        from_values = []
+        to_values = []
+        nodes = []
         for move in self.board.generate_legal_moves():
             action = (move.from_square, move.to_square)
-            p_from = self.prior_p[0][move.from_square]
-            p_to = 0
+            from_values.append(self.prior_p[0][move.from_square])
             piece_type = self.board.piece_type_at(move.from_square)
-            if piece_type is not None:
-                p_to = self.prior_p[piece_type][move.to_square]
+            to_values.append(self.prior_p[piece_type][move.to_square])
 
             sub_node = TreeNode(parent=self,
                                 policy=self.policy,
                                 action=action)
             self.children[action] = sub_node
-            sub_node.set_prior_prob(p_from*p_to)
+            nodes.append(sub_node)
+
+        # scale the sum of p_from and p_to of legal moves to 1
+        p_moves = [from_values[i]*to_values[i] for i in range(len(from_values))]
+        p_total = np.sum(p_moves)
+        p_scale = 1/p_total if p_total > 0 else 0
+        for i in range(len(from_values)):
+            nodes[i].set_prior_prob(p_moves[i]*p_scale)
 
     def get_input_features(self):
         """Generate input features
@@ -196,12 +216,10 @@ class TreeNode(object):
 
     def set_prior_prob(self, prob: float):
         """Set the prior probability of this node"""
-        add_noise = True  # self.depth <= 20  # First 20 moves should add noise.
-        if add_noise:
+        if self.depth <= 30:  # First 20 moves should add noise.
             self.P = 0.75 * prob + 0.25 * np.random.dirichlet((3, 100))[0]
         else:
             self.P = prob
-        self.u = self.P * C_PUCT * 0.5
 
     def backup(self, leaf_value):
         """(Figure 2c) The edge statistics are updated in a backward pass through each step
@@ -218,10 +236,6 @@ class TreeNode(object):
         Returns:
         None
         """
-        if self.depth == 1:
-            logging.debug("node backup: %s", self.get_msg())
-            logging.debug("weight before update: %s", self._weights())
-            logging.debug("update value: %f", leaf_value)
         # Count visit.
         self.N += 1
         # Update W
@@ -232,8 +246,6 @@ class TreeNode(object):
         # visits. Note that u is not normalized to be a distribution.
         if not self.is_root():
             self.u = C_PUCT * self.P * np.sqrt(self.parent.N) / (1 + self.N)
-        if self.depth == 1:
-            logging.debug("weight after update: %s", self._weights())
 
     def update_recursive(self, leaf_value, root_depth):
         """Like a call to update(), but applied recursively for all ancestors.
@@ -278,7 +290,10 @@ class TreeNode(object):
         this search control strategy initially prefers actions with high prior probability and
         low visit count, but asympotically prefers actions with high action-value
         """
-        return self.Q + self.u
+        if self.Q > 0 or self.u > 0:
+            return self.Q + self.u
+
+        return C_PUCT * self.P * np.sqrt(len(self.parent.children)) / 2
 
     def update_pi(self):
         """At the end of the search selects a move a to play in the root
@@ -286,7 +301,7 @@ class TreeNode(object):
         """
         temperature = 1  # first 30 moves
         if self.depth > 30:
-            temperature = 50  # τ→0, 1/τ→a big number
+            temperature = 20  # τ→0, 1/τ→a big number
 
         for item in self.children.items():
             (move, node) = item
@@ -295,9 +310,10 @@ class TreeNode(object):
             self.pi[piece_type][move[1]] += node.N
 
         for i in range(self.pi.shape[0]):
-            total = np.sum([item**temperature for item in self.pi[i]])
+            temp = np.power(self.pi[i], temperature)
+            total = np.sum(temp)
             if total > 0:
-                self.pi[i] = [item**temperature/total for item in self.pi[i]]
+                self.pi[i] = temp/total
 
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).
@@ -321,7 +337,7 @@ class TreeNode(object):
         return "depth: %d, move: %s, turn: %d" % (self.depth, uci_str, self.board.turn)
 
     def _weights(self):
-        return "W: %f, Q: %f, N: %d, u: %f" % (self.W, self.Q, self.N, self.u)
+        return "W: %f, Q: %f, N: %d, u: %f, P: %f" % (self.W, self.Q, self.N, self.u, self.P)
 
     def _get_pgn_game(self):
         root = self.get_root()

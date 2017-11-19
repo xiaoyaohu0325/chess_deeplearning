@@ -46,7 +46,7 @@ class TestPredict(unittest.TestCase):
         for i in range(800):
             selected_node = root.select(depth=3)
             reward = selected_node.evaluate()
-            selected_node.update_recursive(reward, 0)
+            selected_node.update_recursive(reward, 0, selected_node.board.turn)
             logging.info("iteration %d", i)
             self._print_node_info(root)
 

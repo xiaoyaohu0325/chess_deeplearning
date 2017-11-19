@@ -104,18 +104,6 @@ class TreeNode(object):
         self.children[action] = sub_node
         return sub_node
 
-    def before_search(self):
-        self.N = 0
-        self.W = 0
-        self.Q = 0
-        self.u = 0
-
-        if self.is_leaf():
-            return
-
-        for subnode in self.children.values():
-            subnode.before_search()
-
     def select(self, depth=1):
         """Select action among children that gives maximum action value, Q plus bonus u(P).
 
@@ -221,7 +209,7 @@ class TreeNode(object):
         else:
             self.P = prob
 
-    def backup(self, leaf_value):
+    def backup(self, leaf_value, player_turn):
         """(Figure 2c) The edge statistics are updated in a backward pass through each step
         t <= L.
 
@@ -239,7 +227,10 @@ class TreeNode(object):
         # Count visit.
         self.N += 1
         # Update W
-        self.W += leaf_value
+        if self.board.turn == player_turn:
+            self.W += leaf_value
+        else:
+            self.W -= leaf_value
         # Update Q, a running average of values for all visits.
         self.Q = self.W / self.N
         # Update u, the prior weighted by an exploration hyperparameter c_puct and the number of
@@ -247,7 +238,7 @@ class TreeNode(object):
         if not self.is_root():
             self.u = C_PUCT * self.P * np.sqrt(self.parent.N) / (1 + self.N)
 
-    def update_recursive(self, leaf_value, root_depth):
+    def update_recursive(self, leaf_value, root_depth, player_turn):
         """Like a call to update(), but applied recursively for all ancestors.
 
         Note: it is important that this happens from the root downward so that 'parent' visit
@@ -255,8 +246,8 @@ class TreeNode(object):
         """
         # update upward until the s0 node
         if self.depth > root_depth:
-            self.parent.update_recursive(leaf_value, root_depth)
-        self.backup(leaf_value)
+            self.parent.update_recursive(leaf_value, root_depth, player_turn)
+        self.backup(leaf_value, player_turn)
 
     def feed_back_winner(self, force=False):
         """When game is over, it is then scored to give a final reward of r_T {-1,0,+1}

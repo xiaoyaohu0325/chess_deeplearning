@@ -45,14 +45,13 @@ def _print_node_info(node):
 
 
 def search_move(s0_node, n_simulation, n_depth):
-    s0_node.before_search()
     for i in range(n_simulation):
         # step 1: select to time step L
         selected_node = s0_node.select(depth=n_depth)
         # step 2: expand an evaluate
         reward = selected_node.evaluate()
         # step 3: backup
-        selected_node.update_recursive(reward, s0_node.depth)
+        selected_node.update_recursive(reward, s0_node.depth, selected_node.board.turn)
         # if s0_node.depth == 50:
         #     logging.info("iteration %d", i)
         #     _print_node_info(s0_node)

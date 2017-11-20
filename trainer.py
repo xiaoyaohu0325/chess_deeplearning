@@ -202,12 +202,10 @@ def run_training(cmd_line_args=None):
     # define loss functions for each output parameter, names are set in the definition
     # of output layer.
     model.compile(loss={
-        'policy_from_output': losses.categorical_crossentropy,
-        'policy_to_output': losses.categorical_crossentropy,
+        'policy_output': losses.categorical_crossentropy,
         'value_output': losses.mse},
         loss_weights={
-            'policy_from_output': 1.,
-            'policy_to_output': 1.,
+            'policy_output': 1.,
             'value_output': 1.},
         optimizer=optimizer,
         metrics=["accuracy"])

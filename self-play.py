@@ -5,10 +5,11 @@ from preprocessing import game_converter
 import logging
 import chess
 import argparse
+import os
 
 
-def play_games(games, pid, simulations, depth):
-    policy = ResnetPolicy.load_model("./out/model/model_2_128.json")
+def play_games(model, out_dir, games, pid, simulations, depth):
+    policy = ResnetPolicy.load_model(model)
 
     for i in range(games):
         # start a new
@@ -28,10 +29,10 @@ def play_games(games, pid, simulations, depth):
 
         next_node.feed_back_winner()
 
-        game_converter.save_pgn_to_hd5(file_path="./out/self_play/test_pgn_" + str(pid) + ".h5",
+        game_converter.save_pgn_to_hd5(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))),
                                        pgn=next_node.export_pgn_str(),
                                        game_result=next_node.board.result(claim_draw=True))
-        game_converter.features_to_hd5(file_path="./out/self_play/test_features_" + str(pid) + ".h5",
+        game_converter.features_to_hd5(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))),
                                        game_tree=root_node)
         end = timer()
         print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth)
@@ -60,6 +61,8 @@ def search_move(s0_node, n_simulation, n_depth):
 def run_self_play(cmd_line_args=None):
     parser = argparse.ArgumentParser(description='Perform self play to generate data.')
     # required args
+    parser.add_argument("model", help="Path to a JSON model file (i.e. from ResnetPolicy.save_model())")
+    parser.add_argument("out_directory", help="directory where metadata and weights will be saved")
     parser.add_argument("--games", "-n", help="Number of games to generate. Default: 1", type=int,
                         default=1)
     parser.add_argument("--pid", "-p", help="unique id of the generated h5 file. Default: 0", type=int,
@@ -73,7 +76,7 @@ def run_self_play(cmd_line_args=None):
         args = parser.parse_args()
     else:
         args = parser.parse_args(cmd_line_args)
-    play_games(args.games, args.pid, args.simulations, args.depth)
+    play_games(args.model, args.out_directory, args.games, args.pid, args.simulations, args.depth)
 
 
 if __name__ == '__main__':

@@ -9,8 +9,7 @@ from policy import ResnetPolicy
 
 
 def hdf5_batch_generator(feature_dataset,
-                         pi_from_dataset,
-                         pi_to_dataset,
+                         pi_dataset,
                          rewards_dataset,
                          start_idx,
                          end_idx,
@@ -24,13 +23,13 @@ def hdf5_batch_generator(feature_dataset,
             begin = offset
             end = offset + batch_size
             offset += batch_size
-            yield (feature_dataset[begin:end],
-                   [pi_from_dataset[begin:end], pi_to_dataset[begin:end], rewards_dataset[begin:end]])
+            yield (np.array(feature_dataset[begin:end]),
+                   [np.array(pi_dataset[begin:end]).reshape((batch_size, 448)),
+                    np.array(rewards_dataset[begin:end]).reshape((batch_size, 1))])
 
 
 def shuffled_hdf5_batch_generator(feature_dataset,
-                                  pi_from_dataset,
-                                  pi_to_dataset,
+                                  pi_dataset,
                                   rewards_dataset,
                                   start_idx,
                                   end_idx,
@@ -45,13 +44,11 @@ def shuffled_hdf5_batch_generator(feature_dataset,
 
         for i in range(imax):
             f_batch = [feature_dataset[k] for k in indexes[i*batch_size:(i+1)*batch_size]]
-            p_from_batch = [pi_from_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
-            p_to_batch = [pi_to_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
+            p_batch = [pi_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
             r_batch = [rewards_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
 
             yield (f_batch.reshape((batch_size, 8, 8, 18)), [
-                p_from_batch.reshape((batch_size, 64)),
-                p_to_batch.reshape((batch_size, 64)),
+                p_batch.reshape((batch_size, 448)),
                 r_batch.reshape((batch_size, 1))])
 
 
@@ -187,16 +184,14 @@ def run_training(cmd_line_args=None):
     # create dataset generators
     train_data_generator = shuffled_hdf5_batch_generator(
         dataset["features"],
-        dataset["pi_from"],
-        dataset["pi_to"],
+        dataset["pi"],
         dataset["rewards"],
         0,
         n_train_data,
         args.minibatch)
     val_data_generator = shuffled_hdf5_batch_generator(
         dataset["features"],
-        dataset["pi_from"],
-        dataset["pi_to"],
+        dataset["pi"],
         dataset["rewards"],
         n_train_data,
         n_total_data,

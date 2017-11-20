@@ -47,9 +47,9 @@ def shuffled_hdf5_batch_generator(feature_dataset,
             p_batch = [pi_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
             r_batch = [rewards_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
 
-            yield (f_batch.reshape((batch_size, 8, 8, 18)), [
-                p_batch.reshape((batch_size, 448)),
-                r_batch.reshape((batch_size, 1))])
+            yield (np.array(f_batch).reshape((batch_size, 8, 8, 18)), [
+                np.array(p_batch).reshape((batch_size, 448)),
+                np.array(r_batch).reshape((batch_size, 1))])
 
 
 class MetadataWriterCallback(Callback):

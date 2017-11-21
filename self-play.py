@@ -8,8 +8,9 @@ import argparse
 import os
 
 
-def play_games(model, out_dir, games, pid, simulations, depth):
+def play_games(model, weights, out_dir, games, pid, simulations, depth):
     policy = ResnetPolicy.load_model(model)
+    policy.model.load_weights(weights)
 
     for i in range(games):
         # start a new
@@ -18,12 +19,12 @@ def play_games(model, out_dir, games, pid, simulations, depth):
         next_node = root_node
         moves = 0
         while True:
-            # start_search = timer()
+            start_search = timer()
             search_move(next_node, simulations, depth)
-            # end_search = timer()
+            end_search = timer()
             next_node = next_node.play()
             moves += 1
-            # print('search move ', end_search - start_search)
+            print('search move ', end_search - start_search)
             if next_node.board.is_game_over(claim_draw=True):
                 break
 
@@ -62,6 +63,7 @@ def run_self_play(cmd_line_args=None):
     parser = argparse.ArgumentParser(description='Perform self play to generate data.')
     # required args
     parser.add_argument("model", help="Path to a JSON model file (i.e. from ResnetPolicy.save_model())")
+    parser.add_argument("weights", help="Path to a weights file")
     parser.add_argument("out_directory", help="directory where metadata and weights will be saved")
     parser.add_argument("--games", "-n", help="Number of games to generate. Default: 1", type=int,
                         default=1)
@@ -76,7 +78,7 @@ def run_self_play(cmd_line_args=None):
         args = parser.parse_args()
     else:
         args = parser.parse_args(cmd_line_args)
-    play_games(args.model, args.out_directory, args.games, args.pid, args.simulations, args.depth)
+    play_games(args.model, args.weights, args.out_directory, args.games, args.pid, args.simulations, args.depth)
 
 
 if __name__ == '__main__':

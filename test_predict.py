@@ -47,7 +47,13 @@ class TestPredict(unittest.TestCase):
             selected_node = root.select(depth=3)
             reward = selected_node.evaluate()
             selected_node.update_recursive(reward, 0, selected_node.board.turn)
+            (action, sub_node) = max(root.children.items(), key=lambda act_node: act_node[1].get_value())
+            from_name = chess.square_name(action[0])
+            to_name = chess.square_name(action[1])
+            move_name = from_name + to_name
             logging.info("iteration %d", i)
+            logging.info("selected move: " + move_name)
+            logging.info("value {0:.4f}".format(sub_node.get_value()))
             self._print_node_info(root)
 
         end = timer()

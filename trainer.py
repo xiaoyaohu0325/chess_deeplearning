@@ -47,9 +47,9 @@ def shuffled_hdf5_batch_generator(feature_dataset,
             p_batch = [pi_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
             r_batch = [rewards_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
 
-            yield (f_batch.reshape((batch_size, 8, 8, 18)), [
-                p_batch.reshape((batch_size, 448)),
-                r_batch.reshape((batch_size, 1))])
+            yield (np.array(f_batch).reshape((batch_size, 8, 8, 18)), [
+                np.array(p_batch).reshape((batch_size, 448)),
+                np.array(r_batch).reshape((batch_size, 1))])
 
 
 class MetadataWriterCallback(Callback):
@@ -202,12 +202,10 @@ def run_training(cmd_line_args=None):
     # define loss functions for each output parameter, names are set in the definition
     # of output layer.
     model.compile(loss={
-        'policy_from_output': losses.categorical_crossentropy,
-        'policy_to_output': losses.categorical_crossentropy,
+        'policy_output': losses.categorical_crossentropy,
         'value_output': losses.mse},
         loss_weights={
-            'policy_from_output': 1.,
-            'policy_to_output': 1.,
+            'policy_output': 1.,
             'value_output': 1.},
         optimizer=optimizer,
         metrics=["accuracy"])

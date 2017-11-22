@@ -5,7 +5,7 @@ from preprocessing import game_converter
 import logging
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-C_PUCT = 5
+C_PUCT = 0.8
 
 
 class TreeNode(object):
@@ -16,6 +16,7 @@ class TreeNode(object):
     """
 
     def __init__(self, parent,
+                 index=0,
                  policy=None,
                  fen=None,
                  action=None   # (from_square_index, to_square_index)
@@ -33,6 +34,7 @@ class TreeNode(object):
         else:
             self.depth = parent.depth + 1
 
+        self.index = index
         self.board = chess.Board(self.fen)
         self.policy = policy
         self.children = {}  # a map from action to TreeNode
@@ -100,7 +102,8 @@ class TreeNode(object):
 
         sub_node = TreeNode(parent=self,
                             policy=self.policy,
-                            action=action)
+                            action=action,
+                            index=len(self.children))
         self.children[action] = sub_node
         return sub_node
 
@@ -111,20 +114,19 @@ class TreeNode(object):
         and finishes when the simulation reaches a leaf node sL at time-step L. At each of these
         time-steps, t < L, an action is selected according to the statistics in the search tree
         """
-        target_depth = self.depth + depth
-        selected_node = self
-        while True:
-            # go deeper
-            if selected_node.is_leaf():
-                selected_node.expand_with_leagl_moves()
-                if selected_node.is_leaf():  # game over, nothing expanded
-                    break
-            (action, selected_node) = max(selected_node.children.items(), key=lambda act_node: act_node[1].get_value())
-            if selected_node.depth >= target_depth:
-                break
+        if self.board.is_game_over(claim_draw=True):
+            logging.debug("node selected: %s", self.get_msg())
+            return self
 
-        logging.debug("node selected: %s", selected_node.get_msg())
-        return selected_node
+        if self.is_leaf():
+            self.expand_with_leagl_moves()
+
+        selected_node = max(self.children.values(), key=lambda act_node: act_node.get_value())
+        if depth == 1:
+            logging.debug("node selected: %s", selected_node.get_msg())
+            return selected_node
+        else:
+            return selected_node.select(depth - 1)
 
     def evaluate(self):
         """The leaf node sL is added to a queue for neural network evaluation,
@@ -172,6 +174,7 @@ class TreeNode(object):
         from_values = []
         to_values = []
         nodes = []
+        idx = 0
         for move in self.board.generate_legal_moves():
             action = (move.from_square, move.to_square)
             from_values.append(self.prior_p[0][move.from_square])
@@ -180,9 +183,11 @@ class TreeNode(object):
 
             sub_node = TreeNode(parent=self,
                                 policy=self.policy,
-                                action=action)
+                                action=action,
+                                index=idx)
             self.children[action] = sub_node
             nodes.append(sub_node)
+            idx += 1
 
         # scale the sum of p_from and p_to of legal moves to 1
         p_moves = [from_values[i]*to_values[i] for i in range(len(from_values))]
@@ -325,10 +330,14 @@ class TreeNode(object):
             uci_str = self.move.uci()
         else:
             uci_str = 'None'
-        return "depth: %d, move: %s, turn: %d" % (self.depth, uci_str, self.board.turn)
+        return "%s\nmove: %s, turn: %d\n%s" % \
+               (self.get_name(), uci_str, self.board.turn, self._weights())
+
+    def get_name(self):
+        return "{0:d}-{1:d}".format(self.depth, self.index)
 
     def _weights(self):
-        return "W: %f, Q: %f, N: %d, u: %f, P: %f" % (self.W, self.Q, self.N, self.u, self.P)
+        return "W: %f\nQ: %f\nN: %d\nu: %f" % (self.W, self.Q, self.N, self.u)
 
     def _get_pgn_game(self):
         root = self.get_root()

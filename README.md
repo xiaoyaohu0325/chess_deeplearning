@@ -1,1 +1,1 @@
-python trainer.py ./out/model.json ./out/self_play/features-ai.hdf ./out/train --minibatch 16
+depth 1, simulation 100 --> C_PUCT = 0.8

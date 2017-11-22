@@ -6,6 +6,7 @@ import logging
 import chess
 import argparse
 import os
+# from tree_exporter import export_node
 
 
 def play_games(model, weights, out_dir, games, pid, simulations, depth):
@@ -22,6 +23,10 @@ def play_games(model, weights, out_dir, games, pid, simulations, depth):
             start_search = timer()
             search_move(next_node, simulations, depth)
             end_search = timer()
+
+            # g = export_node(next_node, expand=False)
+            # g.render(filename=str(moves), directory='./out/view/3_300')
+
             next_node = next_node.play()
             moves += 1
             print('search move ', end_search - start_search)
@@ -39,13 +44,6 @@ def play_games(model, weights, out_dir, games, pid, simulations, depth):
         print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth)
 
 
-def _print_node_info(node):
-    for (action, subnode) in node.children.items():
-        from_square_name = chess.square_name(action[0])
-        to_square_name = chess.square_name(action[1])
-        logging.info("move: %s%s, value: %s", from_square_name, to_square_name, subnode._weights())
-
-
 def search_move(s0_node, n_simulation, n_depth):
     for i in range(n_simulation):
         # step 1: select to time step L
@@ -54,9 +52,6 @@ def search_move(s0_node, n_simulation, n_depth):
         reward = selected_node.evaluate()
         # step 3: backup
         selected_node.update_recursive(reward, s0_node.depth, selected_node.board.turn)
-        # if s0_node.depth == 50:
-        #     logging.info("iteration %d", i)
-        #     _print_node_info(s0_node)
 
 
 def run_self_play(cmd_line_args=None):

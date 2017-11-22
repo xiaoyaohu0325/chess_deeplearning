@@ -278,7 +278,9 @@ class TreeNode(object):
             if winner is None:
                 current_node.reward = 0
             else:
-                current_node.reward = 1 if winner == current_node.board.turn else -1
+                # current_node.board.turn is the opponent player to move, because the
+                # state of the board is the one after we play
+                current_node.reward = -1 if winner == current_node.board.turn else 1
             current_node = current_node.parent
 
     def get_value(self):

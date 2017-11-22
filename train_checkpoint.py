@@ -6,7 +6,7 @@ import chess
 import os
 
 
-def play(white_player, black_player, n_game=100):
+def play(white_player, black_player, out_file, n_game=100):
     for i in range(n_game):
         game = Game(white_player, black_player)
         move = game.play()
@@ -14,7 +14,7 @@ def play(white_player, black_player, n_game=100):
             move = game.play()
 
         print('game', i, 'finished! Full moves', game.fullmove_count(), 'winner:', game.winner_color())
-        game.save_to_h5("./out/checkpoint/gen0_gen1_10_128.h5")
+        game.save_to_h5(out_file)
 
 
 def run_checkpoint(cmd_line_args=None):
@@ -24,7 +24,7 @@ def run_checkpoint(cmd_line_args=None):
     parser.add_argument("--weights_1", "-w1", help="A .h5 file of training data")
     parser.add_argument("--model_2", "-m2", help="Path to a JSON model file (i.e. from ResnetPolicy.save_model())")
     parser.add_argument("--weights_2", "-w2", help="A .h5 file of training data")
-    parser.add_argument("--out_directory", "-o", help="directory where metadata and weights will be saved")
+    parser.add_argument("--out_file", "-o", help="output file which the pgn will save")
     # frequently used args
     parser.add_argument("--simulations", "-s", help="Simulation numbers. Default: 100", type=int,
                         default=100)  # noqa: E501
@@ -36,17 +36,19 @@ def run_checkpoint(cmd_line_args=None):
     else:
         args = parser.parse_args(cmd_line_args)
 
-    policy_1 = ResnetPolicy.load_model(args.model_1)
-    policy_1.model.load_weights(args.weights_1)
-    policy_2 = ResnetPolicy.load_model(args.model_2)
-    policy_2.model.load_weights(args.weights_2)
-
     # assign black and white
+    p1 = _create_player(chess.WHITE, args.model_1, args.weights_1,
+                        args.simulations, args.depth)
+    p2 = _create_player(chess.BLACK, args.model_2, args.weights_2,
+                        args.simulations, args.depth)
+    play(p1, p2, args.out_file)
+
+    # switch color
     p1 = _create_player(chess.BLACK, args.model_1, args.weights_1,
                         args.simulations, args.depth)
     p2 = _create_player(chess.WHITE, args.model_2, args.weights_2,
                         args.simulations, args.depth)
-    play(p2, p1)
+    play(p2, p1, args.out_file)
 
 
 def _create_player(color, model, weights, simulation=400, depth=1):

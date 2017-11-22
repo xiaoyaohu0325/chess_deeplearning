@@ -18,18 +18,18 @@ def play_games(model, weights, out_dir, games, pid, simulations, depth):
         start = timer()
         root_node = TreeNode(None, policy=policy)
         next_node = root_node
-        moves = 0
+        # moves = 0
         while True:
-            start_search = timer()
+            # start_search = timer()
             search_move(next_node, simulations, depth)
-            end_search = timer()
+            # end_search = timer()
 
             # g = export_node(next_node, expand=False)
             # g.render(filename=str(moves), directory='./out/view/3_300')
 
             next_node = next_node.play()
-            moves += 1
-            print('search move ', end_search - start_search)
+            # moves += 1
+            # print('search move ', end_search - start_search)
             if next_node.board.is_game_over(claim_draw=True):
                 break
 
@@ -41,7 +41,8 @@ def play_games(model, weights, out_dir, games, pid, simulations, depth):
         game_converter.features_to_hd5(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))),
                                        game_tree=root_node)
         end = timer()
-        print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth)
+        print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth,
+              ", result:", next_node.board.result(claim_draw=True))
 
 
 def search_move(s0_node, n_simulation, n_depth):

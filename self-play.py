@@ -6,7 +6,7 @@ import logging
 import chess
 import argparse
 import os
-# from tree_exporter import export_node
+from tree_exporter import export_node
 
 
 def play_games(model, weights, out_dir, games, pid, simulations, depth):
@@ -18,28 +18,28 @@ def play_games(model, weights, out_dir, games, pid, simulations, depth):
         start = timer()
         root_node = TreeNode(None, policy=policy)
         next_node = root_node
-        # moves = 0
+        moves = 0
         while True:
-            # start_search = timer()
+            start_search = timer()
             search_move(next_node, simulations, depth)
-            # end_search = timer()
+            end_search = timer()
 
-            # g = export_node(next_node, expand=False)
-            # g.render(filename=str(moves), directory='./out/view/3_300')
+            g = export_node(next_node, expand=False)
+            g.render(filename=str(moves), directory=out_dir)
 
             next_node = next_node.play()
-            # moves += 1
-            # print('search move ', end_search - start_search)
+            moves += 1
+            print('search move ', end_search - start_search)
             if next_node.board.is_game_over(claim_draw=True):
                 break
 
         next_node.feed_back_winner()
 
-        game_converter.save_pgn_to_hd5(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))),
-                                       pgn=next_node.export_pgn_str(),
-                                       game_result=next_node.board.result(claim_draw=True))
-        game_converter.features_to_hd5(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))),
-                                       game_tree=root_node)
+        # game_converter.save_pgn_to_hd5(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))),
+        #                                pgn=next_node.export_pgn_str(),
+        #                                game_result=next_node.board.result(claim_draw=True))
+        # game_converter.features_to_hd5(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))),
+        #                                game_tree=root_node)
         end = timer()
         print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth,
               ", result:", next_node.board.result(claim_draw=True))

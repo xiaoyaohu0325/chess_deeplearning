@@ -299,7 +299,7 @@ class TreeNode(object):
         """
         temperature = 1  # first 30 moves
         if self.depth > 30:
-            temperature = 20  # τ→0, 1/τ→a big number
+            temperature = 50  # τ→0, 1/τ→a big number
 
         for item in self.children.items():
             (move, node) = item

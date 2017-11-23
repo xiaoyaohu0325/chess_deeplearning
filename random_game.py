@@ -7,21 +7,16 @@ import argparse
 def play_game(num_game=1, pid=0):
     games = 0
     while True:
-        if games > num_game:
+        if games >= num_game:
             break
         # start a new
         start = timer()
         root_node = TreeNode(None)
         next_node = root_node
-        moves = 0
 
         while True:
             # start_search = timer()
             next_node = play_a_move(next_node)
-            moves += 1
-            if moves % 10 == 0:
-                print(moves)
-                print(next_node.board.fen())
             # end_search = timer()
             # print('search move ', end_search - start_search)
             if next_node.board.is_game_over(claim_draw=True):
@@ -33,11 +28,11 @@ def play_game(num_game=1, pid=0):
         games += 1
         end = timer()
         print("game", games, "finished!  elapsed", end - start, ", round:", next_node.depth, 'result:', result)
-        # game_converter.save_pgn_to_hd5(file_path="./out/self_play/uniform/pgn_" + pid + ".h5",
-        #                                pgn=next_node.export_pgn_str(),
-        #                                game_result=result)
-        # game_converter.features_to_hd5(file_path="./out/self_play/uniform/features_" + pid + ".h5",
-        #                                game_tree=root_node)
+        game_converter.save_pgn_to_hd5(file_path="./out/self_play/uniform/pgn_" + pid + ".h5",
+                                       pgn=next_node.export_pgn_str(),
+                                       game_result=result)
+        game_converter.features_to_hd5(file_path="./out/self_play/uniform/features_" + pid + ".h5",
+                                       game_tree=root_node)
 
 
 def play_a_move(s0_node):
@@ -47,6 +42,8 @@ def play_a_move(s0_node):
         action = (move.from_square, move.to_square)
         actions.append(action)
 
+    s0_node.N = len(actions)
+
     for i in range(len(actions)):
         action = actions[i]
         sub_node = TreeNode(parent=s0_node,
@@ -54,6 +51,7 @@ def play_a_move(s0_node):
                             index=i)
         s0_node.children[action] = sub_node
         sub_node.set_prior_prob(1.0/len(actions))
+        sub_node.N = 1
 
     # step 3: update pi
     s0_node.update_pi()

@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import chess
 import h5py as h5
 
 
@@ -176,13 +177,7 @@ def convert_game(game_tree):
     while not current_node.is_leaf():
         features = current_node.get_input_features()
         r = current_node.reward
-        pi = np.reshape(current_node.pi, (448,))
-        # normalize
-        total = np.sum(pi)
-        if total == 0:
-            print("pi sum is 0")
-        else:
-            pi = pi/total
+        pi = current_node.pi
         current_node = current_node.next_node()
         yield (features, pi, r)
 
@@ -204,8 +199,8 @@ def features_to_hd5(file_path, game_tree):
             h5f.require_dataset(
                 name='pi',
                 dtype=np.float,
-                shape=(0, 448),
-                maxshape=(None, 448),
+                shape=(0, 4096),
+                maxshape=(None, 4096),
                 chunks=True,
                 compression="lzf")
         if "rewards" not in h5f:
@@ -224,7 +219,7 @@ def features_to_hd5(file_path, game_tree):
 
         for state, pi, r in convert_game(game_tree):
             features.resize((size + 1, 8, 8, 18))
-            actions.resize((size + 1, 448))
+            actions.resize((size + 1, 4096))
             rates.resize((size + 1, 1))
             features[size] = state
             actions[size] = pi
@@ -237,3 +232,30 @@ def features_to_hd5(file_path, game_tree):
     finally:
         # processing complete; rename tmp_file to hdf5_file
         h5f.close()
+
+
+def policy_index_to_action(idx):
+    from_square = int(idx/64)
+    to_square = idx % 64
+    return from_square, to_square
+
+
+def action_to_policy_index(action):
+    return action[0]*64 + action[1]
+
+
+def check_pi(pi):
+    """
+    pi is of shape (4096,)
+    :param pi:
+    :return:
+    """
+    total = 0
+    for i in range(len(pi)):
+        if pi[i] > 0:
+            action = policy_index_to_action(i)
+            from_square = chess.square_name(action[0])
+            to_square = chess.square_name(action[1])
+            print('action: {0}{1}'.format(from_square, to_square), ", probability:", pi[i])
+            total += pi[i]
+    print('total probability:', total)

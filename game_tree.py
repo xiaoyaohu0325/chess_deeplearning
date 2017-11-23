@@ -5,7 +5,7 @@ from preprocessing import game_converter
 import logging
 
 INITIAL_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-C_PUCT = 0.8
+C_PUCT = 5
 
 
 class TreeNode(object):
@@ -45,20 +45,11 @@ class TreeNode(object):
         self.Q = 0  # mean action-value
         self.P = 0  # prior probability of selecting this node
         """
-        self.prior_p shape is (7,64)
-        The order is the same as chess
-        PIECE_TYPES = [PAWN, KNIGHT, BISHOP, ROOK, QUEEN, KING] = range(1, 7)
-        0. p of from_square
-        1. p of pawn's to_square
-        2. p of knight's to_square
-        3. p of bishop's to_square
-        4. p of rook's to_square
-        5. p of queue's to_square
-        6. p of king's to_square
+        self.prior_p shape is (4096,)
         """
         self.prior_p = None
         self.u = 0
-        self.pi = np.zeros((7, 64), dtype=np.float)
+        self.pi = np.zeros((4096,), dtype=np.float)
         self.reward = 0
         # do move to update the board state, fen
         self._do_move()
@@ -140,8 +131,8 @@ class TreeNode(object):
             if self.policy is not None:
                 features = self.get_input_features()
                 output = self.policy.forward([features])
-                # shape of output[0] is (1, 64*7), shape of output[2] is (1, 1)
-                self.prior_p = np.reshape(output[0][0], (7, 64))
+                # shape of output[0] is (1, 4096), shape of output[2] is (1, 1)
+                self.prior_p = output[0][0]
                 self.reward = output[1][0][0]
                 logging.debug("node %s, evaluate reward %f", self.get_msg(), self.reward)
             else:
@@ -171,30 +162,26 @@ class TreeNode(object):
             # evaluate this node to get probabilities of legal moves
             self.evaluate()
 
-        from_values = []
-        to_values = []
-        nodes = []
         idx = 0
+        p_total = 0
         for move in self.board.generate_legal_moves():
             action = (move.from_square, move.to_square)
-            from_values.append(self.prior_p[0][move.from_square])
-            piece_type = self.board.piece_type_at(move.from_square)
-            to_values.append(self.prior_p[piece_type][move.to_square])
+            p_index = game_converter.action_to_policy_index(action)
 
             sub_node = TreeNode(parent=self,
                                 policy=self.policy,
                                 action=action,
                                 index=idx)
+            # sub_node.set_prior_prob(self.prior_p[p_index])
+            p_total += self.prior_p[p_index]
             self.children[action] = sub_node
-            nodes.append(sub_node)
             idx += 1
 
-        # scale the sum of p_from and p_to of legal moves to 1
-        p_moves = [from_values[i]*to_values[i] for i in range(len(from_values))]
-        p_total = np.sum(p_moves)
-        p_scale = 1/p_total if p_total > 0 else 0
-        for i in range(len(from_values)):
-            nodes[i].set_prior_prob(p_moves[i]*p_scale)
+        p_scale = 1 / p_total if p_total > 0 else 0
+        for item in self.children.items():
+            (action, node) = item
+            p_index = game_converter.action_to_policy_index(action)
+            node.set_prior_prob(self.prior_p[p_index]*p_scale)
 
     def get_input_features(self):
         """Generate input features
@@ -301,17 +288,14 @@ class TreeNode(object):
         if self.depth > 30:
             temperature = 50  # τ→0, 1/τ→a big number
 
-        for item in self.children.items():
-            (move, node) = item
-            piece_type = self.board.piece_type_at(move[0])
-            self.pi[0][move[0]] += node.N
-            self.pi[piece_type][move[1]] += node.N
+        total = 0
+        for node in self.children.values():
+            total += node.N**temperature
 
-        for i in range(self.pi.shape[0]):
-            temp = np.power(self.pi[i], temperature)
-            total = np.sum(temp)
-            if total > 0:
-                self.pi[i] = temp/total
+        for item in self.children.items():
+            (action, node) = item
+            p_index = game_converter.action_to_policy_index(action)
+            self.pi[p_index] = node.N**temperature / total
 
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).

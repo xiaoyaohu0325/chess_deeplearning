@@ -2,9 +2,10 @@ from game_tree import TreeNode
 from timeit import default_timer as timer
 from preprocessing import game_converter
 import argparse
+import os
 
 
-def play_game(num_game=1, pid=0):
+def play_game(num_game, pid, outdir):
     games = 0
     while True:
         if games >= num_game:
@@ -28,10 +29,10 @@ def play_game(num_game=1, pid=0):
         games += 1
         end = timer()
         print("game", games, "finished!  elapsed", end - start, ", round:", next_node.depth, 'result:', result)
-        game_converter.save_pgn_to_hd5(file_path="./out/self_play/uniform/pgn_" + pid + ".h5",
+        game_converter.save_pgn_to_hd5(file_path=os.path.join(outdir, "pgn_{0:d}.h5".format(pid)),
                                        pgn=next_node.export_pgn_str(),
                                        game_result=result)
-        game_converter.features_to_hd5(file_path="./out/self_play/uniform/features_" + pid + ".h5",
+        game_converter.features_to_hd5(file_path=os.path.join(outdir, "features_{0:d}.h5".format(pid)),
                                        game_tree=root_node)
 
 
@@ -70,13 +71,14 @@ def run_random_play(cmd_line_args=None):
     # required args
     parser.add_argument("games", help="Number of games to generate.")
     parser.add_argument("pid", help="unique id of the generated h5 file.")
+    parser.add_argument("outdir", help="directory where game data will be saved.")
 
     if cmd_line_args is None:
         args = parser.parse_args()
     else:
         args = parser.parse_args(cmd_line_args)
 
-    play_game(int(args.games), args.pid)
+    play_game(int(args.games), args.pid, args.outdir)
 
 
 if __name__ == '__main__':

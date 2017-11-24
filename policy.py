@@ -130,13 +130,19 @@ class ResnetPolicy(object):
         return y
 
     def _policy_header(self, layer):
-        y = layers.Conv2D(filters=16, kernel_size=1, strides=1, padding='same',
+        """Each side has 16 pieces, the output is the possibility distribution
+        of moves by these pieces which is 1024(with 16 planes and 64 positions for each plane)
+
+        The order of the piece type is decided by their position index in the board regardless the piece type.
+        Bottom-left index is 0, top-right index is 63.
+        """
+        y = layers.Conv2D(filters=32, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)
         y = layers.Flatten()(y)
         # give a name for the out, out dimension is 64*64
-        y = layers.Dense(4096, activation="softmax", name="policy_output",
+        y = layers.Dense(1024, activation="softmax", name="policy_output",
                          kernel_regularizer=regularizers.l2(reg_control))(y)
 
         return y

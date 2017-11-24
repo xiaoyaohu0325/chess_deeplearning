@@ -1,5 +1,4 @@
 import numpy as np
-import os
 import chess
 import h5py as h5
 
@@ -199,8 +198,8 @@ def features_to_hd5(file_path, game_tree):
             h5f.require_dataset(
                 name='pi',
                 dtype=np.float,
-                shape=(0, 4096),
-                maxshape=(None, 4096),
+                shape=(0, 1024),
+                maxshape=(None, 1024),
                 chunks=True,
                 compression="lzf")
         if "rewards" not in h5f:
@@ -219,7 +218,7 @@ def features_to_hd5(file_path, game_tree):
 
         for state, pi, r in convert_game(game_tree):
             features.resize((size + 1, 8, 8, 18))
-            actions.resize((size + 1, 4096))
+            actions.resize((size + 1, 1024))
             rates.resize((size + 1, 1))
             features[size] = state
             actions[size] = pi
@@ -234,14 +233,42 @@ def features_to_hd5(file_path, game_tree):
         h5f.close()
 
 
-def policy_index_to_action(idx):
-    from_square = int(idx/64)
-    to_square = idx % 64
-    return from_square, to_square
+def policy_index_to_action(index):
+    p_index = int(index/64)
+    to_square = index % 64
+    return p_index, to_square
 
 
-def action_to_policy_index(action):
-    return action[0]*64 + action[1]
+def get_piece_index(board, square):
+    """
+    Get the piece index of the specified square
+    :param board:
+    :param square:
+    :return:
+    """
+    piece_squares = [key for key, value in board.piece_map().items() if value.color == board.turn]
+    piece_squares = sorted(piece_squares)
+    return piece_squares.index(square)
+
+
+def analyze_legal_moves(board: chess.Board):
+    """Analyze legal move of current board state.
+    return a dict whose keys is index of movable piece(0-15).
+    and value is an array of moves.
+    """
+    result = dict()
+    piece_squares = [key for key, value in board.piece_map().items() if value.color == board.turn]
+    piece_squares = sorted(piece_squares)
+
+    for move in board.generate_legal_moves():
+        idx = piece_squares.index(move.from_square)
+
+        if result.get(idx) is None:
+            result[idx] = []
+
+        result[idx].append((move.from_square, move.to_square))
+
+    return result
 
 
 def check_pi(pi):
@@ -254,8 +281,7 @@ def check_pi(pi):
     for i in range(len(pi)):
         if pi[i] > 0:
             action = policy_index_to_action(i)
-            from_square = chess.square_name(action[0])
             to_square = chess.square_name(action[1])
-            print('action: {0}{1}'.format(from_square, to_square), ", probability:", pi[i])
+            print('piece order: {0}, to: {1}'.format(action[0], to_square), ", probability:", pi[i])
             total += pi[i]
     print('total probability:', total)

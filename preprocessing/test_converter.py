@@ -1,5 +1,6 @@
 import unittest
-from .game_converter import fen_pieces_to_board
+from .game_converter import fen_pieces_to_board, analyze_legal_moves, get_piece_index
+import chess
 
 
 class TestConverter(unittest.TestCase):
@@ -78,6 +79,38 @@ class TestConverter(unittest.TestCase):
         self.assertEqual(board[0][5], decode_piece('B'))
         self.assertEqual(board[0][6], decode_piece('N'))
         self.assertEqual(board[0][7], decode_piece('R'))
+
+    def test_legal_moves(self):
+        board = chess.Board()  # initial board
+        result = analyze_legal_moves(board)
+
+        self.assertEqual(len(result), 10)   # ten pieces can move at start
+
+        n_moves = result.get(1)  # b1, whose index is 1
+
+        self.assertEqual(len(n_moves), 2)
+        self.assertTrue((1, chess.square(file_index=0, rank_index=2)) in n_moves)    # b1 knight can move to a2
+        self.assertTrue((1, chess.square(file_index=2, rank_index=2)) in n_moves)    # b1 knight can move to c2
+
+        for i in range(8):
+            p_moves = result.get(8 + i)
+            # pawn can move forward 1 or 2 squares
+            self.assertTrue((chess.square(file_index=i, rank_index=1), chess.square(file_index=i, rank_index=2)) in p_moves)
+            self.assertTrue((chess.square(file_index=i, rank_index=1), chess.square(file_index=i, rank_index=3)) in p_moves)
+
+    def test_piece_index(self):
+        board = chess.Board()  # initial board
+        for i in range(16):
+            self.assertEqual(get_piece_index(board, i), i)
+
+        board.set_fen("1n2kb2/4p3/b1p3rp/5PP1/pP1p2P1/N2n3P/PB1P2K1/1r2QBNR w - - 22 51")
+
+        self.assertEqual(get_piece_index(board, 4), 0)  # Q
+        self.assertEqual(get_piece_index(board, 5), 1)  # B
+        self.assertEqual(get_piece_index(board, 6), 2)  # N
+        self.assertEqual(get_piece_index(board, 7), 3)  # R
+        self.assertEqual(get_piece_index(board, 37), 12)  # P
+        self.assertEqual(get_piece_index(board, 38), 13)  # P
 
 
 def decode_piece(p):

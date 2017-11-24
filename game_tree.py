@@ -45,11 +45,13 @@ class TreeNode(object):
         self.Q = 0  # mean action-value
         self.P = 0  # prior probability of selecting this node
         """
-        self.prior_p shape is (4096,)
+        self.prior_p shape is (1024,)
         """
         self.prior_p = None
+        self.piece_index = 0
+        self.legal_moves_dict = None
         self.u = 0
-        self.pi = np.zeros((4096,), dtype=np.float)
+        self.pi = np.zeros((1024,), dtype=np.float)
         self.reward = 0
         # do move to update the board state, fen
         self._do_move()
@@ -131,7 +133,7 @@ class TreeNode(object):
             if self.policy is not None:
                 features = self.get_input_features()
                 output = self.policy.forward([features])
-                # shape of output[0] is (1, 4096), shape of output[2] is (1, 1)
+                # shape of output[0] is (1, 1024), shape of output[2] is (1, 1)
                 self.prior_p = output[0][0]
                 self.reward = output[1][0][0]
                 logging.debug("node %s, evaluate reward %f", self.get_msg(), self.reward)
@@ -162,26 +164,30 @@ class TreeNode(object):
             # evaluate this node to get probabilities of legal moves
             self.evaluate()
 
+        self.legal_moves_dict = game_converter.analyze_legal_moves(self.board)
+
         idx = 0
         p_total = 0
-        for move in self.board.generate_legal_moves():
-            action = (move.from_square, move.to_square)
-            p_index = game_converter.action_to_policy_index(action)
 
-            sub_node = TreeNode(parent=self,
-                                policy=self.policy,
-                                action=action,
-                                index=idx)
-            # sub_node.set_prior_prob(self.prior_p[p_index])
-            p_total += self.prior_p[p_index]
-            self.children[action] = sub_node
-            idx += 1
+        for piece_index, actions in self.legal_moves_dict.items():
+            for action in actions:
+                p_index = piece_index*64 + action[1]
+                p_total += self.prior_p[p_index]
 
         p_scale = 1 / p_total if p_total > 0 else 0
-        for item in self.children.items():
-            (action, node) = item
-            p_index = game_converter.action_to_policy_index(action)
-            node.set_prior_prob(self.prior_p[p_index]*p_scale)
+
+        for piece_index, actions in self.legal_moves_dict.items():
+            for action in actions:
+                p_index = piece_index * 64 + action[1]
+
+                sub_node = TreeNode(parent=self,
+                                    policy=self.policy,
+                                    action=action,
+                                    index=idx)
+                sub_node.piece_index = piece_index
+                sub_node.set_prior_prob(self.prior_p[p_index]*p_scale)
+                self.children[action] = sub_node
+                idx += 1
 
     def get_input_features(self):
         """Generate input features
@@ -196,7 +202,7 @@ class TreeNode(object):
 
     def set_prior_prob(self, prob: float):
         """Set the prior probability of this node"""
-        if self.depth <= 30:  # First 20 moves should add noise.
+        if self.depth <= 20:  # First 20 moves should add noise.
             self.P = 0.75 * prob + 0.25 * np.random.dirichlet((3, 100))[0]
         else:
             self.P = prob
@@ -294,7 +300,7 @@ class TreeNode(object):
 
         for item in self.children.items():
             (action, node) = item
-            p_index = game_converter.action_to_policy_index(action)
+            p_index = node.piece_index*64 + action[1]
             self.pi[p_index] = node.N**temperature / total
 
     def is_leaf(self):

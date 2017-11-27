@@ -136,13 +136,13 @@ class ResnetPolicy(object):
         The order of the piece type is decided by their position index in the board regardless the piece type.
         Bottom-left index is 0, top-right index is 63.
         """
-        y = layers.Conv2D(filters=32, kernel_size=1, strides=1, padding='same',
+        y = layers.Conv2D(filters=4, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)
         y = layers.Flatten()(y)
         # give a name for the out, out dimension is 64*64
-        y = layers.Dense(1024, activation="softmax", name="policy_output",
+        y = layers.Dense(128, activation="softmax", name="policy_output",
                          kernel_regularizer=regularizers.l2(reg_control))(y)
 
         return y

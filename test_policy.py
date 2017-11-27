@@ -9,7 +9,7 @@ class TestCNNPolicy(unittest.TestCase):
         policy = ResnetPolicy(
             init_network=True,
             residual_blocks=10)
-        policy.save_model(r"./out/model/1024/model_10_128.json", r"./out/model/1024/random_weights_10_128")
+        policy.save_model(r"./out/model/128/model_10_128.json", r"./out/model/128/random_weights_10_128")
 
     def test_plot(self):
         policy = ResnetPolicy.load_model(r"./out/model/1024/model_10_128.json")

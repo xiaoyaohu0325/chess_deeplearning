@@ -44,10 +44,10 @@ def play_games(model, weights, out_dir, games, pid):
             if moves > MAX_MOVES or next_node.board.is_game_over():
                 break
 
-        if moves > MAX_MOVES:
-            next_node.feed_back_winner(force=True)
-        else:
-            next_node.feed_back_winner()
+        # if moves > MAX_MOVES:
+        #     next_node.feed_back_winner(force=True)
+        # else:
+        #     next_node.feed_back_winner()
 
         # game_converter.save_pgn_to_hd5(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))),
         #                                pgn=next_node.export_pgn_str(),

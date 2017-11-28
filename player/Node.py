@@ -5,7 +5,7 @@ from util.features import action_to_index
 from collections import namedtuple
 
 CounterKey = namedtuple("CounterKey", "board to_play depth")
-c_PUCT = 3
+c_PUCT = 1
 virtual_loss = 3
 
 
@@ -29,7 +29,7 @@ class Node:
         self.N = 0
         self.Q = 0
         self.P = 0 if move_prob is None else move_prob
-        self.U = self.P
+        self.U = 0
 
     def __str__(self):
         return "depth: {0:d}, move: {1}, player: {2}".format(self.n,
@@ -70,16 +70,28 @@ class Node:
         self.N -= virtual_loss
         self.W += virtual_loss
 
-    def select_action_by_score(self)->tuple:
+    def get_value(self):
+        """Calculate and return the value for this node:
+        this search control strategy initially prefers actions with high prior probability and
+        low visit count, but asympotically prefers actions with high action-value
+        """
         def noise_score(node):
-            return node.Q + node.U * (0.75 * node.P + 0.25 * dirichlet([.03, 1])[0]) / (node.P + 1e-8)
+            if node.Q > 0 or node.U > 0:
+                return node.Q + node.U * (0.75 * node.P + 0.25 * dirichlet([.03, 1])[0]) / (node.P + 1e-8)
+            else:
+                return c_PUCT * node.P * np.sqrt(len(node.parent.children)) / 2
 
         def pure_score(node):
-            return node.Q + node.U
+            if node.Q > 0 or node.U > 0:
+                return node.Q + node.U
+            else:
+                return c_PUCT * node.P * np.sqrt(len(node.parent.children)) / 2
 
         score_func = noise_score if self.n < 30 else pure_score
+        return score_func(self)
 
-        selected_node = max(self.children.values(), key=lambda act_node: score_func(act_node))
+    def select_action_by_score(self)->tuple:
+        selected_node = max(self.children.values(), key=lambda act_node: act_node.get_value())
         return selected_node.move.from_square, selected_node.move.to_square
 
     def prune_tree(self, prune=True):

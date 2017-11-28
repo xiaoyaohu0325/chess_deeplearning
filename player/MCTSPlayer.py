@@ -1,7 +1,7 @@
 # from _asyncio import Future
 import asyncio
 from asyncio.queues import Queue
-import uvloop
+# import uvloop
 # from profilehooks import profile
 # import logging
 # import sys
@@ -18,7 +18,7 @@ from player.Node import Node
 from util.strategies import select_weighted_random, select_most_likely
 # from utils.utilities import flatten_coords, unflatten_coords
 
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+# asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
@@ -132,7 +132,7 @@ class MCTSPlayerMixin(object):
         self.loop.run_until_complete(asyncio.gather(*coroutine_list))
 
         logger.debug("Searched for {0:.5f} seconds".format(time.time() - start))
-        return node.prune_tree(prune=False)
+        return node.prune_tree()
 
     async def tree_search(self, node: Node)->float:
         """Independent MCTS, stands for one simulation"""

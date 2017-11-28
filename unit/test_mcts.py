@@ -7,8 +7,10 @@ from util.features import action_to_icu
 from tree_exporter import export_node
 import logging
 import daiquiri
+
 daiquiri.setup(level=logging.INFO)
 logger = daiquiri.getLogger(__name__)
+
 
 class MCTSTest(unittest.TestCase):
 

@@ -3,7 +3,6 @@ from asyncio.queues import Queue
 import uvloop
 import time
 import numpy as np
-from profilehooks import profile
 from collections import namedtuple
 import logging
 import daiquiri
@@ -92,7 +91,6 @@ class MCTSPlayerMixin(object):
 
         return move, win_rate
 
-    @profile
     def suggest_move_mcts(self, node: Node)->tuple:
         """Async tree search controller"""
         if node.is_game_over():
@@ -112,7 +110,7 @@ class MCTSPlayerMixin(object):
         self.loop.run_until_complete(asyncio.gather(*coroutine_list))
 
         logger.debug("Searched for {0:.5f} seconds".format(time.time() - start))
-        return node.prune_tree(prune=False)
+        return node.prune_tree()
 
     async def tree_search(self, node: Node)->float:
         """Independent MCTS, stands for one simulation"""
@@ -220,6 +218,6 @@ class MCTSPlayerMixin(object):
             raise ValueError("Can't compress None position into a key!!!")
         return CounterKey(tuple(position.board_array()), position.to_play, position.n)
 
-    @profile
+    #@profile
     def run_many(self, bulk_features):
         return self.net.forward(bulk_features)

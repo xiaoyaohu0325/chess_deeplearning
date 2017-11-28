@@ -2,9 +2,13 @@ import unittest
 from timeit import default_timer as timer
 from policy import ResnetPolicy
 from player.MCTSPlayer import MCTSPlayerMixin
-from player.Position import Position
+from player.Node import Node
 from util.features import action_to_icu
-
+from tree_exporter import export_node
+import logging
+import daiquiri
+daiquiri.setup(level=logging.INFO)
+logger = daiquiri.getLogger(__name__)
 
 class MCTSTest(unittest.TestCase):
 
@@ -12,11 +16,13 @@ class MCTSTest(unittest.TestCase):
         policy = ResnetPolicy.load_model('../out/model/128/model_10_128.json')
         policy.model.load_weights('../out/model/128/random_weights_10_128')
 
-        position = Position()
-        mc_root = MCTSPlayerMixin(policy, 800)
+        root_node = Node()
+        mc_root = MCTSPlayerMixin(policy, 400)
         start = timer()
-        move, win_rate = mc_root.suggest_move(position)
+        move, win_rate = mc_root.suggest_move(root_node)
         end = timer()
 
         print("suggest move elapse:", end-start)
         print("selected move:", action_to_icu(move), ', win_rate:', win_rate)
+        g = export_node(root_node, expand=True)
+        g.render(filename=str(0), directory='../out/view/mcts')

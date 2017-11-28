@@ -7,15 +7,16 @@ def export_node(node, expand=True):
     _create_node(g, parent, parent.get_msg())
 
     while not parent.is_leaf():
-        selected_node = parent.select()
+        selected_action = parent.select_action_by_score()
+        selected_node = parent.children[selected_action]
         for sub_node in sorted(parent.children.values(), key=lambda act_node: act_node.index):
             selected = selected_node.index == sub_node.index
-            if selected or not expand:
+            if selected or expand:
                 label = sub_node.get_msg()
             else:
                 label = sub_node.get_name()
             _create_node(g, sub_node, label, selected)
-            g.edge(parent.get_name(), sub_node.get_name(), label=str(sub_node.P) if selected or not expand else '')
+            g.edge(parent.get_name(), sub_node.get_name(), label=str(sub_node.P) if selected or expand else '')
         parent = selected_node
         if not expand:
             break

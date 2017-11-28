@@ -2,14 +2,14 @@ import numpy as np
 import chess
 
 
-def extract_features(position):
-    return fen_to_features(position.fen())
+def extract_features(node):
+    return fen_to_features(node.fen())
 
 
-def bulk_extract_features(positions):
-    num_positions = len(positions)
-    output = np.zeros([num_positions, 8, 8, 18], dtype=np.uint8)
-    for i, pos in enumerate(positions):
+def bulk_extract_features(nodes):
+    num_nodes = len(nodes)
+    output = np.zeros([num_nodes, 8, 8, 18], dtype=np.uint8)
+    for i, pos in enumerate(nodes):
         output[i] = extract_features(pos)
     return output
 

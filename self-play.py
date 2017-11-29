@@ -6,11 +6,16 @@ import chess
 import argparse
 import os
 
-from player.MCTSPlayer import MCTSPlayerMixin
+# from player.MCTSPlayer import MCTSPlayerMixin
 from player.Node import Node
 from tree_exporter import export_node
 import logging
 import daiquiri
+import pyximport
+pyximport.install()
+
+from player.MCTSPlayer_C import *
+
 daiquiri.setup(level=logging.INFO)
 logger = daiquiri.getLogger(__name__)
 
@@ -35,7 +40,7 @@ def play_games(model, weights, out_dir, games, pid):
             move, win_rate = mctc.suggest_move(next_node)
             end_search = timer()
 
-            g = export_node(next_node, expand=True)
+            g = export_node(next_node, expand=False)
             g.render(filename=str(moves), directory=out_dir)
 
             next_node = next_node.children[move]
@@ -55,7 +60,7 @@ def play_games(model, weights, out_dir, games, pid):
         # game_converter.features_to_hd5(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))),
         #                                game_tree=root_node)
         end = timer()
-        print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.depth,
+        print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.n,
               ", result:", next_node.board.result(claim_draw=True))
 
 

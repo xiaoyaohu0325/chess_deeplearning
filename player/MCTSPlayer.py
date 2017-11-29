@@ -88,11 +88,11 @@ class MCTSPlayerMixin(object):
         else:
             """Use MCTS guided by NN average win ratio"""
             win_rate = node.children[move].Q / 2 + 0.5
-        logger.info('Win rate for player {0} is {1:.4f}'.format(player, win_rate))
+        logger.debug('Win rate for player {0} is {1:.4f}'.format(player, win_rate))
 
         return move, win_rate
 
-    @profile
+    # @profile
     def suggest_move_mcts(self, node: Node)->tuple:
         """Async tree search controller"""
         if node.is_game_over():
@@ -112,7 +112,7 @@ class MCTSPlayerMixin(object):
         self.loop.run_until_complete(asyncio.gather(*coroutine_list))
 
         logger.debug("Searched for {0:.5f} seconds".format(time.time() - start))
-        return node.prune_tree(prune=False)
+        return node.select_next_action(keep_children=True)
 
     async def tree_search(self, node: Node)->float:
         """Independent MCTS, stands for one simulation"""
@@ -198,7 +198,7 @@ class MCTSPlayerMixin(object):
                 await asyncio.sleep(1e-3)
                 continue
             item_list = [q.get_nowait() for _ in range(q.qsize())]  # type: list[QueueItem]
-            logger.debug("predicting {0} items".format(len(item_list)))
+            logger.debug("running_simulation_num {0}, predicting {1} items".format(self.running_simulation_num, len(item_list)))
             bulk_features = np.asarray([item.feature for item in item_list])
             policy_ary, value_ary = self.run_many(bulk_features)
             for p, v, item in zip(policy_ary, value_ary, item_list):
@@ -220,6 +220,6 @@ class MCTSPlayerMixin(object):
             raise ValueError("Can't compress None position into a key!!!")
         return CounterKey(tuple(position.board_array()), position.to_play, position.n)
 
-    @profile
+    # @profile
     def run_many(self, bulk_features):
         return self.net.forward(bulk_features)

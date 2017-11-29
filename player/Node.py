@@ -1,11 +1,12 @@
 import chess
+import chess.pgn as pgn
 import numpy as np
 from numpy.random import dirichlet
 from util.features import action_to_index
 from collections import namedtuple
 
 CounterKey = namedtuple("CounterKey", "board to_play depth")
-c_PUCT = 1
+c_PUCT = 3
 virtual_loss = 3
 
 
@@ -30,6 +31,8 @@ class Node:
         self.Q = 0
         self.P = 0 if move_prob is None else move_prob
         self.U = 0
+        self.pi = np.zeros((128,))
+        self.reward = 0
 
     def __str__(self):
         return "depth: {0:d}, move: {1}, player: {2}".format(self.n,
@@ -94,15 +97,42 @@ class Node:
         selected_node = max(self.children.values(), key=lambda act_node: act_node.get_value())
         return selected_node.move.from_square, selected_node.move.to_square
 
-    def prune_tree(self, prune=True):
+    def select_next_action(self, keep_children=False):
+        self.update_pi()
+
         selected_action = self.select_action_by_score()
         selected_node = self.children[selected_action]
 
-        if prune:
+        if not keep_children:
+            # option 1: prune all nodes except the selected one
             self.children.clear()
             self.children[selected_action] = selected_node
+        else:
+            # option 2: keep the direct children nodes and descendant nodes of the selected node
+            for sub_node in self.children.values():
+                if sub_node != selected_node:
+                    sub_node.children.clear()
 
         return selected_action
+
+    def update_pi(self):
+        """At the end of the search selects a move a to play in the root
+        position s0, proportional to its exponentiated visit count
+        """
+        for action, sub_node in self.children.items():
+            move_from, move_to = action
+            self.pi[move_from] += sub_node.N
+            self.pi[64 + move_to] += sub_node.N
+
+        self.pi /= np.sum(self.pi)
+        return self.pi
+
+    def update_reward(self, winner):
+        if winner is None:
+            self.reward = 0
+        else:
+            # revert the reward because self.to_play is the opponent player to move
+            self.reward = -1 if winner == self.to_play else 1
 
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).
@@ -111,6 +141,22 @@ class Node:
 
     def is_root(self):
         return self.parent is None
+
+    def get_root(self):
+        root_node = self
+        while not root_node.is_root():
+            root_node = root_node.parent
+        return root_node
+
+    def next_node(self):
+        """Return the first child of this node"""
+        if self.is_leaf():
+            return None
+        if len(self.children) == 1:
+            return list(self.children.values())[0]
+        else:
+            next_action = self.select_action_by_score()
+            return self.children[next_action]
 
     def color_to_play(self):
         return "W" if self.to_play else "B"
@@ -204,4 +250,35 @@ class Node:
         ``1-0``, ``0-1`` or ``1/2-1/2`` if the
         game is over. Otherwise the result is undetermined: ``*``.
         """
-        return self.board.result()
+        result = self.board.result()
+        if result == '*':
+            return '1/2-1/2'
+        return result
+
+    def _get_pgn_game(self):
+        root = self.get_root()
+        game = pgn.Game()
+        game.headers["Event"] = "Self play"
+        next_node = root.next_node()
+        game_node = game
+
+        while True:
+            game_node = game_node.add_variation(next_node.move)
+            if next_node.is_leaf():
+                break
+            next_node = next_node.next_node()
+
+        game.headers["Result"] = next_node.resule()
+
+        return game
+
+    def save_as_pgn(self, file_path):
+        game = self._get_pgn_game()
+        with open(file_path, "w", encoding="utf-8") as f:
+            exporter = chess.pgn.FileExporter(f)
+            game.accept(exporter)
+
+    def export_pgn_str(self):
+        game = self._get_pgn_game()
+        exporter = chess.pgn.StringExporter(headers=True)
+        return game.accept(exporter)

@@ -198,8 +198,8 @@ def features_to_hd5(file_path, game_tree):
             h5f.require_dataset(
                 name='pi',
                 dtype=np.float,
-                shape=(0, 1024),
-                maxshape=(None, 1024),
+                shape=(0, 128),
+                maxshape=(None, 128),
                 chunks=True,
                 compression="lzf")
         if "rewards" not in h5f:
@@ -218,7 +218,7 @@ def features_to_hd5(file_path, game_tree):
 
         for state, pi, r in convert_game(game_tree):
             features.resize((size + 1, 8, 8, 18))
-            actions.resize((size + 1, 1024))
+            actions.resize((size + 1, 128))
             rates.resize((size + 1, 1))
             features[size] = state
             actions[size] = pi

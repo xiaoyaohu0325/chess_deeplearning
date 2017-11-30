@@ -1,6 +1,6 @@
 import asyncio
 from asyncio.queues import Queue
-import uvloop
+# import uvloop
 import time
 import numpy as np
 from profilehooks import profile
@@ -11,7 +11,7 @@ from util.features import extract_features, bulk_extract_features
 from player.Node import Node
 from util.strategies import select_weighted_random, select_most_likely
 
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+# asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 

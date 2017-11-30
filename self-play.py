@@ -6,15 +6,16 @@ import chess
 import argparse
 import os
 
-# from player.MCTSPlayer import MCTSPlayerMixin
+from player.MCTSPlayer import MCTSPlayerMixin
+from player.RandomPlayer import RandomPlayerMixin
 from player.Node import Node
 from tree_exporter import export_node
 import logging
 import daiquiri
-import pyximport
-pyximport.install()
-
-from player.MCTSPlayer_C import *
+# import pyximport
+# pyximport.install()
+#
+# from player.MCTSPlayer_C import *
 
 daiquiri.setup(level=logging.INFO)
 logger = daiquiri.getLogger(__name__)
@@ -31,38 +32,39 @@ def play_games(model, weights, out_dir, games, pid):
         # start a new
         start = timer()
         root_node = Node()
-        mctc = MCTSPlayerMixin(policy, 400)
+        mctc = MCTSPlayerMixin(policy, 200)
+        # random_player = RandomPlayerMixin()
 
         next_node = root_node
         moves = 0
         while True:
-            start_search = timer()
+            # start_search = timer()
             move, win_rate = mctc.suggest_move(next_node)
-            end_search = timer()
+            # end_search = timer()
 
-            g = export_node(next_node, expand=False)
-            g.render(filename=str(moves), directory=out_dir)
+            # g = export_node(next_node, expand=False)
+            # g.render(filename=str(moves), directory=out_dir)
 
             next_node = next_node.children[move]
             moves += 1
-            print('search move ', end_search - start_search, "win_rate:", win_rate)
+            # print('search move ', end_search - start_search, "win_rate:", win_rate)
             if moves > MAX_MOVES or next_node.board.is_game_over():
                 break
 
-        # if moves > MAX_MOVES:
-        #     next_node.feed_back_winner(force=True)
-        # else:
-        #     next_node.feed_back_winner()
+        if moves > MAX_MOVES:
+            next_node.feed_back_winner(force=True)
+        else:
+            next_node.feed_back_winner()
 
-        # game_converter.save_pgn_to_hd5(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))),
-        #                                pgn=next_node.export_pgn_str(),
-        #                                game_result=next_node.board.result(claim_draw=True))
-        # game_converter.features_to_hd5(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))),
-        #                                game_tree=root_node)
         end = timer()
-        print("game ", i, " finished!  elapsed ", end-start, ", round: ", next_node.n,
+        print("game ", i, " finished!  elapsed ", end - start, ", round: ", next_node.n,
               ", result:", next_node.board.result(claim_draw=True))
 
+        game_converter.save_pgn_to_hd5(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))),
+                                       pgn=next_node.export_pgn_str(),
+                                       game_result=next_node.board.result(claim_draw=True))
+        game_converter.features_to_hd5(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))),
+                                       game_tree=root_node)
 
 # def search_move(s0_node, n_simulation, n_depth):
 #     for i in range(n_simulation):

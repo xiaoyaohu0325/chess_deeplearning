@@ -1,6 +1,7 @@
 import numpy as np
 import chess
 import h5py as h5
+from util.features import extract_features
 
 
 def fen_to_features(fen: str):
@@ -173,12 +174,14 @@ def convert_game(game_tree):
 
     # iterate moves until game end or leaf node arrived
     current_node = root_node
-    while not current_node.is_leaf():
-        features = current_node.get_input_features()
+    while True:
+        features = extract_features(current_node)
         r = current_node.reward
         pi = current_node.pi
-        current_node = current_node.next_node()
         yield (features, pi, r)
+        current_node = current_node.next_node()
+        if current_node is None or current_node.is_leaf():
+            break
 
 
 def features_to_hd5(file_path, game_tree):

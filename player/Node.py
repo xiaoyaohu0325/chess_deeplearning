@@ -134,6 +134,30 @@ class Node:
             # revert the reward because self.to_play is the opponent player to move
             self.reward = -1 if winner == self.to_play else 1
 
+    def feed_back_winner(self, force=False):
+        """When game is over, it is then scored to give a final reward of r_T {-1,0,+1}
+        The data for each time-step t is stored as (s_t,Pi_t,z_t) where z_t = ±r_T is the
+        game winner from the perspective of the current player at step t
+        """
+        if not force:
+            if not self.board.is_game_over():
+                raise ValueError("this method can be invoked only when game is over")
+
+            result = self.result()
+            if result == "0-1":
+                winner = chess.BLACK
+            elif result == "1-0":
+                winner = chess.WHITE
+            elif result == "1/2-1/2":
+                winner = None
+        else:
+            winner = None   # force to terminate
+
+        current_node = self
+        while current_node is not None:
+            current_node.update_reward(winner)
+            current_node = current_node.parent
+
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).
         """
@@ -155,8 +179,9 @@ class Node:
         if len(self.children) == 1:
             return list(self.children.values())[0]
         else:
-            next_action = self.select_action_by_score()
-            return self.children[next_action]
+            for sub_node in self.children.values():
+                if not sub_node.is_leaf():
+                    return sub_node
 
     def color_to_play(self):
         return "W" if self.to_play else "B"
@@ -266,9 +291,13 @@ class Node:
             game_node = game_node.add_variation(next_node.move)
             if next_node.is_leaf():
                 break
-            next_node = next_node.next_node()
+            temp = next_node.next_node()
+            if temp is not None:
+                next_node = temp
+            else:
+                break
 
-        game.headers["Result"] = next_node.resule()
+        game.headers["Result"] = next_node.result()
 
         return game
 

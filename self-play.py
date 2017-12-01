@@ -42,7 +42,7 @@ def play_games(model, weights, out_dir, games, pid):
             move, win_rate = mctc.suggest_move(next_node)
             # end_search = timer()
 
-            # g = export_node(next_node, expand=False)
+            # g = export_node(next_node)
             # g.render(filename=str(moves), directory=out_dir)
 
             next_node = next_node.children[move]

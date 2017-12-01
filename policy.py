@@ -75,7 +75,7 @@ class ResnetPolicy(object):
         }
         if weights_file is not None:
             self.model.save_weights(weights_file)
-            object_specs['weights_file'] = weights_file
+            # object_specs['weights_file'] = weights_file
         # use the json module to write object_specs to file
         with open(json_file, 'w') as f:
             json.dump(object_specs, f)

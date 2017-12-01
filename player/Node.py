@@ -1,4 +1,4 @@
-import chess
+import simple_chess as chess
 import chess.pgn as pgn
 import numpy as np
 from numpy.random import dirichlet
@@ -40,7 +40,7 @@ class Node:
                                                              "W" if self.to_play else "B")
 
     def counter_key(self) -> namedtuple:
-        return CounterKey(tuple(self.board_array()), self.to_play, self.n)
+        return CounterKey(self.board.occupied, self.to_play, self.n)
 
     def expand_node(self, move_probabilities: np.ndarray)->None:
         """Expand leaf node"""
@@ -65,33 +65,23 @@ class Node:
         if not self.is_root():
             self.U = c_PUCT * self.P * np.sqrt(self.parent.N) / (1 + self.N)
 
-    def virtual_loss_do(self)->None:
-        self.N += virtual_loss
-        self.W -= virtual_loss
-
-    def virtual_loss_undo(self)->None:
-        self.N -= virtual_loss
-        self.W += virtual_loss
+    # def virtual_loss_do(self)->None:
+    #     self.N += virtual_loss
+    #     self.W -= virtual_loss
+    #
+    # def virtual_loss_undo(self)->None:
+    #     self.N -= virtual_loss
+    #     self.W += virtual_loss
 
     def get_value(self):
         """Calculate and return the value for this node:
         this search control strategy initially prefers actions with high prior probability and
         low visit count, but asympotically prefers actions with high action-value
         """
-        def noise_score(node):
-            if node.Q > 0 or node.U > 0:
-                return node.Q + node.U * (0.75 * node.P + 0.25 * dirichlet([.03, 1])[0]) / (node.P + 1e-8)
-            else:
-                return c_PUCT * node.P * np.sqrt(len(node.parent.children)) / 2
-
-        def pure_score(node):
-            if node.Q > 0 or node.U > 0:
-                return node.Q + node.U
-            else:
-                return c_PUCT * node.P * np.sqrt(len(node.parent.children)) / 2
-
-        score_func = noise_score if self.n < 30 else pure_score
-        return score_func(self)
+        if self.Q > 0 or self.U > 0:
+            return self.Q + self.U
+        else:
+            return c_PUCT * self.P * np.sqrt(len(self.parent.children)) / 2
 
     def select_action_by_score(self)->tuple:
         selected_node = max(self.children.values(), key=lambda act_node: act_node.get_value())
@@ -203,17 +193,17 @@ class Node:
     def fen(self):
         return self.board.fen()
 
-    def board_array(self):
-        """Return the board state as an array of size 64.
-        The lower left index is 0. The value is piece type.
-        For example:
-        piece type 'P'(white pawn), value = ord('P') - ord('A') = 15
-        piece type 'b'(black bishop), value = ord('b') - ord('A') = 33
-        """
-        result = np.zeros((64,), dtype=np.int8)
-        for square, piece in self.board.piece_map().items():
-            result[square] = ord(piece.symbol()) - ord('A')
-        return result
+    # def board_array(self):
+    #     """Return the board state as an array of size 64.
+    #     The lower left index is 0. The value is piece type.
+    #     For example:
+    #     piece type 'P'(white pawn), value = ord('P') - ord('A') = 15
+    #     piece type 'b'(black bishop), value = ord('b') - ord('A') = 33
+    #     """
+    #     result = np.zeros((64,), dtype=np.int8)
+    #     for square, piece in self.board.piece_map().items():
+    #         result[square] = ord(piece.symbol()) - ord('A')
+    #     return result
 
     def is_legal_move(self, action):
         return action in self.legal_moves
@@ -223,11 +213,19 @@ class Node:
         p_from = predict[:64]
         p_to = predict[64:]
         result = np.zeros((4096,))
-        for action in self.legal_moves:
+
+        for idx, action in enumerate(self.legal_moves):
             p_1 = p_from[action[0]]
             p_2 = p_to[action[1]]
             result[action_to_index(action)] = p_1*p_2
         result /= np.sum(result)  # make sure the sum of result is 1
+        # add noise
+        if self.n < 30:
+            noise = dirichlet([.03]*len(self.legal_moves))
+            for idx, action in enumerate(self.legal_moves):
+                result[action_to_index(action)] += noise[idx]
+            result /= np.sum(result)  # make sure the sum of result is 1
+
         return result
 
     def play_move(self, action, move_prob=None):
@@ -235,10 +233,7 @@ class Node:
             return None
 
         from_square, to_square = action
-        board_copy = self.board.copy()
-
-        from_square_name = chess.square_name(from_square)
-        to_square_name = chess.square_name(to_square)
+        board_copy = self.board.copy(stack=False)
 
         piece = board_copy.piece_type_at(from_square)
         promotion = False
@@ -250,16 +245,16 @@ class Node:
 
         if promotion:
             # Promote to knight if it can checkmate, otherwise promote to queue
-            knight_p = chess.Move.from_uci(from_square_name + to_square_name + 'n')
+            knight_p = chess.Move(from_square, to_square, promotion=chess.KNIGHT)
             board_copy.push(knight_p)
             if board_copy.is_checkmate():
                 move = knight_p
             else:
                 board_copy.pop()  # remove last move
-                move = chess.Move.from_uci(from_square_name + to_square_name + 'q')
+                move = chess.Move(from_square, to_square, promotion=chess.QUEEN)
                 board_copy.push(move)
         else:
-            move = chess.Move.from_uci(from_square_name + to_square_name)
+            move = chess.Move(from_square, to_square)
             board_copy.push(move)
 
         sub_node = Node(parent=self, board=board_copy, move_prob=move_prob)
@@ -304,10 +299,10 @@ class Node:
     def save_as_pgn(self, file_path):
         game = self._get_pgn_game()
         with open(file_path, "w", encoding="utf-8") as f:
-            exporter = chess.pgn.FileExporter(f)
+            exporter = pgn.FileExporter(f)
             game.accept(exporter)
 
     def export_pgn_str(self):
         game = self._get_pgn_game()
-        exporter = chess.pgn.StringExporter(headers=True)
+        exporter = pgn.StringExporter(headers=True)
         return game.accept(exporter)

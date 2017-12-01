@@ -92,7 +92,7 @@ class MCTSPlayerMixin(object):
 
         return move, win_rate
 
-    # @profile
+    @profile
     def suggest_move_mcts(self, node: Node)->tuple:
         """Async tree search controller"""
         if node.is_game_over():
@@ -135,9 +135,10 @@ class MCTSPlayerMixin(object):
 
         now_expanding = self.now_expanding
 
-        key = self.counter_key(node)
+        key = node.counter_key()
 
         while key in now_expanding:
+            logger.debug("wait for expanding")
             await asyncio.sleep(1e-4)
 
         if node.is_leaf():
@@ -146,7 +147,7 @@ class MCTSPlayerMixin(object):
             self.now_expanding.add(key)
 
             """Show thinking history for fun"""
-            logger.debug("Investigating following position:\n{0}".format(node))
+            # logger.debug("Investigating following position:\n{0}".format(node))
 
             # perform dihedral manipuation
             features = extract_features(node)
@@ -172,11 +173,11 @@ class MCTSPlayerMixin(object):
             child_node = node.children[action_t]
 
             # add virtual loss
-            child_node.virtual_loss_do()
+            # child_node.virtual_loss_do()
             value = await self.start_tree_search(child_node)  # next move
-            child_node.virtual_loss_undo()
+            # child_node.virtual_loss_undo()
 
-            logger.debug("value: {0:.2f} for position: {1}".format(value, node))
+            logger.debug("value: {0:.2f} for position: {1}".format(value, child_node))
 
             # on returning search path
             # update: N, W, Q, U
@@ -198,7 +199,7 @@ class MCTSPlayerMixin(object):
                 await asyncio.sleep(1e-3)
                 continue
             item_list = [q.get_nowait() for _ in range(q.qsize())]  # type: list[QueueItem]
-            logger.debug("running_simulation_num {0}, predicting {1} items".format(self.running_simulation_num, len(item_list)))
+            logger.info("running_simulation_num {0}, predicting {1} items".format(self.running_simulation_num, len(item_list)))
             bulk_features = np.asarray([item.feature for item in item_list])
             policy_ary, value_ary = self.run_many(bulk_features)
             for p, v, item in zip(policy_ary, value_ary, item_list):
@@ -211,14 +212,8 @@ class MCTSPlayerMixin(object):
         return future
 
     """MCTS helper functioins
-       @ counter_key
        @ run_many
     """
-    @staticmethod
-    def counter_key(position: Node)->namedtuple:
-        if position is None:
-            raise ValueError("Can't compress None position into a key!!!")
-        return CounterKey(tuple(position.board_array()), position.to_play, position.n)
 
     # @profile
     def run_many(self, bulk_features):

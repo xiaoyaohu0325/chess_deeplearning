@@ -130,6 +130,10 @@ def action_to_index(action):
     return action[0]*64 + action[1]
 
 
+def move_to_index(move):
+    return move.from_square * 64 + move.to_square
+
+
 def index_to_action(idx):
     return divmod(idx, 64)
 

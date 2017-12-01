@@ -9,7 +9,6 @@ import logging
 import daiquiri
 from util.features import extract_features, bulk_extract_features
 from player.Node import Node
-from util.strategies import select_weighted_random, select_most_likely
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 daiquiri.setup(level=logging.DEBUG)
@@ -42,7 +41,7 @@ class MCTSPlayerMixin(object):
         # algorithm that tries to approximate a value by averaging over run_many
         # random processes, the quality of the search tree is hard to define.
         # It's a trade off among time, accuracy, and the frequency of NN updates.
-        self.sem = asyncio.Semaphore(16)
+        self.sem = asyncio.Semaphore(8)
         self.queue = Queue(16)
         self.loop = asyncio.get_event_loop()
         self.running_simulation_num = 0
@@ -61,38 +60,21 @@ class MCTSPlayerMixin(object):
        @ push_queue
     """
 
-    def suggest_move(self, node: Node, inference=False)->tuple:
+    def suggest_move(self, node: Node)->tuple:
         self.node = node
-        """Compute move prob"""
-        if inference:
-            """Use direct NN predition (pretty weak)"""
-            move_probs, value = self.run_many(bulk_extract_features([node]))
-            move_prob = move_probs[0]
-            """Select move"""
-            on_board_move_prob = node.predict_to_prob(move_prob)
-            # logger.debug(on_board_move_prob)
-            if node.n < 30:
-                move = select_weighted_random(node, on_board_move_prob)
-            else:
-                move = select_most_likely(node, on_board_move_prob)
-        else:
-            """Use MCTS guided by NN"""
-            move = self.suggest_move_mcts(node)
+        """Use MCTS guided by NN"""
+        move = self.suggest_move_mcts(node)
 
         """Get win ratio"""
         player = 'W' if node.to_play else 'B'
 
-        if inference:
-            """Use direct NN value prediction (almost always 50/50)"""
-            win_rate = value[0, 0] / 2 + 0.5
-        else:
-            """Use MCTS guided by NN average win ratio"""
-            win_rate = node.children[move].Q / 2 + 0.5
+        """Use MCTS guided by NN average win ratio"""
+        win_rate = node.children[move].Q / 2 + 0.5
         logger.debug('Win rate for player {0} is {1:.4f}'.format(player, win_rate))
 
         return move, win_rate
 
-    @profile
+    # @profile
     def suggest_move_mcts(self, node: Node)->tuple:
         """Async tree search controller"""
         if node.is_game_over():
@@ -199,7 +181,7 @@ class MCTSPlayerMixin(object):
                 await asyncio.sleep(1e-3)
                 continue
             item_list = [q.get_nowait() for _ in range(q.qsize())]  # type: list[QueueItem]
-            logger.info("running_simulation_num {0}, predicting {1} items".format(self.running_simulation_num, len(item_list)))
+            logger.debug("running_simulation_num {0}, predicting {1} items".format(self.running_simulation_num, len(item_list)))
             bulk_features = np.asarray([item.feature for item in item_list])
             policy_ary, value_ary = self.run_many(bulk_features)
             for p, v, item in zip(policy_ary, value_ary, item_list):
@@ -217,4 +199,6 @@ class MCTSPlayerMixin(object):
 
     # @profile
     def run_many(self, bulk_features):
-        return self.net.forward(bulk_features)
+        # First iterator, generate random predict data
+        return np.ones((len(bulk_features), 128)), np.random.uniform(-1, 1, (len(bulk_features), 1))
+        # return self.net.forward(bulk_features)

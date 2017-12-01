@@ -2,7 +2,7 @@ import simple_chess as chess
 import chess.pgn as pgn
 import numpy as np
 from numpy.random import dirichlet
-from util.features import action_to_index
+from util.features import move_to_index
 from collections import namedtuple
 
 CounterKey = namedtuple("CounterKey", "board to_play depth")
@@ -23,8 +23,6 @@ class Node:
         self.children = {}
         self.legal_moves = []
         self.move = None
-        for move in self.board.generate_legal_moves():
-            self.legal_moves.append((move.from_square, move.to_square))
 
         self.W = 0
         self.N = 0
@@ -42,14 +40,31 @@ class Node:
     def counter_key(self) -> namedtuple:
         return CounterKey(self.board.occupied, self.to_play, self.n)
 
-    def expand_node(self, move_probabilities: np.ndarray)->None:
+    def expand_node(self, predict: np.ndarray)->None:
         """Expand leaf node"""
+        """predict is an array of size 128"""
+        p_from = predict[:64]
+        p_to = predict[64:]
+        result = np.zeros((4096,))
+
+        for move in self.board.generate_legal_moves():
+            self.legal_moves.append(move)
+            p_1 = p_from[move.from_square]
+            p_2 = p_to[move.to_square]
+            result[move_to_index(move)] = p_1 * p_2
+
         if len(self.legal_moves) == 0:
             return False
 
-        prob = self.predict_to_prob(move_probabilities)
-        for action in self.legal_moves:
-            self.play_move(action, move_prob=prob[action_to_index(action)])
+        # add noise
+        if self.n < 30:
+            noise = dirichlet([.03] * len(self.legal_moves))
+            for idx, move in enumerate(self.legal_moves):
+                result[move_to_index(move)] += noise[idx]
+
+        result /= np.sum(result)  # make sure the sum of result is 1
+        for move in self.legal_moves:
+            self.play_move(move, move_prob=result[move_to_index(move)])
 
         return True
 
@@ -63,15 +78,15 @@ class Node:
         self.Q = self.W / self.N
 
         if not self.is_root():
-            self.U = c_PUCT * self.P * np.sqrt(self.parent.N) / (1 + self.N)
+            self.U = c_PUCT * self.P * np.sqrt(self.parent.N) / (self.N+1)
 
-    # def virtual_loss_do(self)->None:
-    #     self.N += virtual_loss
-    #     self.W -= virtual_loss
-    #
-    # def virtual_loss_undo(self)->None:
-    #     self.N -= virtual_loss
-    #     self.W += virtual_loss
+    def virtual_loss_do(self)->None:
+        self.N += virtual_loss
+        self.W -= virtual_loss
+
+    def virtual_loss_undo(self)->None:
+        self.N -= virtual_loss
+        self.W += virtual_loss
 
     def get_value(self):
         """Calculate and return the value for this node:
@@ -193,74 +208,17 @@ class Node:
     def fen(self):
         return self.board.fen()
 
-    # def board_array(self):
-    #     """Return the board state as an array of size 64.
-    #     The lower left index is 0. The value is piece type.
-    #     For example:
-    #     piece type 'P'(white pawn), value = ord('P') - ord('A') = 15
-    #     piece type 'b'(black bishop), value = ord('b') - ord('A') = 33
-    #     """
-    #     result = np.zeros((64,), dtype=np.int8)
-    #     for square, piece in self.board.piece_map().items():
-    #         result[square] = ord(piece.symbol()) - ord('A')
-    #     return result
+    def is_legal_move(self, move):
+        return move in self.legal_moves
 
-    def is_legal_move(self, action):
-        return action in self.legal_moves
-
-    def predict_to_prob(self, predict):
-        """predict is an array of size 128"""
-        p_from = predict[:64]
-        p_to = predict[64:]
-        result = np.zeros((4096,))
-
-        for idx, action in enumerate(self.legal_moves):
-            p_1 = p_from[action[0]]
-            p_2 = p_to[action[1]]
-            result[action_to_index(action)] = p_1*p_2
-        result /= np.sum(result)  # make sure the sum of result is 1
-        # add noise
-        if self.n < 30:
-            noise = dirichlet([.03]*len(self.legal_moves))
-            for idx, action in enumerate(self.legal_moves):
-                result[action_to_index(action)] += noise[idx]
-            result /= np.sum(result)  # make sure the sum of result is 1
-
-        return result
-
-    def play_move(self, action, move_prob=None):
-        if not self.is_legal_move(action):
-            return None
-
-        from_square, to_square = action
+    def play_move(self, move, move_prob=None):
         board_copy = self.board.copy(stack=False)
-
-        piece = board_copy.piece_type_at(from_square)
-        promotion = False
-        if piece == chess.PAWN:
-            if board_copy.turn == chess.WHITE and chess.square_rank(to_square) == 7:
-                promotion = True
-            elif board_copy.turn == chess.BLACK and chess.square_rank(to_square) == 0:
-                promotion = True
-
-        if promotion:
-            # Promote to knight if it can checkmate, otherwise promote to queue
-            knight_p = chess.Move(from_square, to_square, promotion=chess.KNIGHT)
-            board_copy.push(knight_p)
-            if board_copy.is_checkmate():
-                move = knight_p
-            else:
-                board_copy.pop()  # remove last move
-                move = chess.Move(from_square, to_square, promotion=chess.QUEEN)
-                board_copy.push(move)
-        else:
-            move = chess.Move(from_square, to_square)
-            board_copy.push(move)
+        board_copy.push(move)
 
         sub_node = Node(parent=self, board=board_copy, move_prob=move_prob)
         sub_node.move = move
         sub_node.index = len(self.children)
-        self.children[action] = sub_node
+        self.children[(move.from_square, move.to_square)] = sub_node
         return sub_node
 
     def result(self):

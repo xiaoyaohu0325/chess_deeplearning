@@ -12,7 +12,7 @@ pyximport.install()
 
 from player.MCTSPlayer_C import *
 
-daiquiri.setup(level=logging.DEBUG)
+daiquiri.setup(level=logging.INFO)
 logger = daiquiri.getLogger(__name__)
 
 

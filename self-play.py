@@ -7,21 +7,21 @@ import argparse
 import os
 
 from player.MCTSPlayer import MCTSPlayerMixin
-from player.RandomPlayer import RandomPlayerMixin
+# from player.RandomPlayer import RandomPlayerMixin
 from player.Node import Node
 from tree_exporter import export_node
 import logging
 import daiquiri
-# import pyximport
-# pyximport.install()
-#
-# from player.MCTSPlayer_C import *
+import pyximport
+pyximport.install()
+
+from player.MCTSPlayer_C import *
 
 daiquiri.setup(level=logging.INFO)
 logger = daiquiri.getLogger(__name__)
 
 
-MAX_MOVES = 200
+MAX_MOVES = 300
 
 
 def play_games(model, weights, out_dir, games, pid):
@@ -32,7 +32,7 @@ def play_games(model, weights, out_dir, games, pid):
         # start a new
         start = timer()
         root_node = Node()
-        mctc = MCTSPlayerMixin(policy, 200)
+        mctc = MCTSPlayerMixin(policy, 300)
         # random_player = RandomPlayerMixin()
 
         next_node = root_node
@@ -42,7 +42,7 @@ def play_games(model, weights, out_dir, games, pid):
             move, win_rate = mctc.suggest_move(next_node)
             # end_search = timer()
 
-            # g = export_node(next_node)
+            # g = export_node(next_node, show_details=False)
             # g.render(filename=str(moves), directory=out_dir)
 
             next_node = next_node.children[move]

@@ -13,14 +13,12 @@ def _expand_node(g: Digraph, parent, show_details=True):
         return
 
     for sub_node in sorted(parent.children.values(), key=lambda act_node: act_node.index):
-        if show_details:
-            label = sub_node.get_msg()
-        else:
-            label = sub_node.get_name()
+        label = sub_node.get_msg()
         _create_node(g, sub_node, label)
         g.edge(parent.get_name(), sub_node.get_name(), label=str(sub_node.P))
         #
-        _expand_node(g, sub_node, show_details)
+        if show_details:
+            _expand_node(g, sub_node, show_details)
 
 
 def _create_node(g: Digraph, node, label):

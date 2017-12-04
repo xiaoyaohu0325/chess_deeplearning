@@ -132,36 +132,34 @@ class Node:
         self.pi /= np.sum(self.pi)
         return self.pi
 
-    def update_reward(self, winner):
-        if winner is None:
-            self.reward = 0
-        else:
-            # revert the reward because self.to_play is the opponent player to move
-            self.reward = -1 if winner == self.to_play else 1
+    def _feedback_reward(self, value):
+        self.reward = value
+
+        node = self.parent
+        while node is not None:
+            value = value * -1
+            node.reward = value
+            node = node.parent
 
     def feed_back_winner(self, force=False):
         """When game is over, it is then scored to give a final reward of r_T {-1,0,+1}
         The data for each time-step t is stored as (s_t,Pi_t,z_t) where z_t = ±r_T is the
         game winner from the perspective of the current player at step t
         """
+        value = 0
         if not force:
             if not self.board.is_game_over():
                 raise ValueError("this method can be invoked only when game is over")
 
             result = self.result()
             if result == "0-1":
-                winner = chess.BLACK
+                value = -1
             elif result == "1-0":
-                winner = chess.WHITE
+                value = -1
             elif result == "1/2-1/2":
-                winner = None
-        else:
-            winner = None   # force to terminate
+                value = 0
 
-        current_node = self
-        while current_node is not None:
-            current_node.update_reward(winner)
-            current_node = current_node.parent
+        self._feedback_reward(value)
 
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).

@@ -94,7 +94,7 @@ class MCTSPlayerMixin(object):
         self.loop.run_until_complete(asyncio.gather(*coroutine_list))
 
         logger.debug("Searched for {0:.5f} seconds".format(time.time() - start))
-        return node.select_next_action(keep_children=True)
+        return node.select_next_action(keep_children=False)
 
     async def tree_search(self, node: Node)->float:
         """Independent MCTS, stands for one simulation"""

@@ -6,7 +6,7 @@ import chess
 import argparse
 import os
 
-from player.MCTSPlayer import MCTSPlayerMixin
+# from player.MCTSPlayer import MCTSPlayerMixin
 # from player.RandomPlayer import RandomPlayerMixin
 from player.Node import Node
 from tree_exporter import export_node
@@ -57,8 +57,9 @@ def play_games(model, weights, out_dir, games, pid):
             next_node.feed_back_winner()
 
         end = timer()
+        result = next_node.board.result()
         print("game ", i, " finished!  elapsed ", end - start, ", round: ", next_node.n,
-              ", result:", next_node.board.result(claim_draw=True))
+              ", result:", result)
 
         game_converter.save_pgn_to_hd5(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))),
                                        pgn=next_node.export_pgn_str(),

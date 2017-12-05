@@ -3,6 +3,11 @@ from player.MCTSPlayer import MCTSPlayerMixin
 from player.RandomPlayer import RandomPlayerMixin
 from policy import ResnetPolicy
 import argparse
+import logging
+import daiquiri
+
+daiquiri.setup(level=logging.INFO)
+logger = daiquiri.getLogger(__name__)
 
 
 def play(white_player, black_player, out_file, n_game=100):
@@ -26,7 +31,7 @@ def run_checkpoint(cmd_line_args=None):
     parser.add_argument("--out_file", "-o", help="output file which the pgn will save")
     # frequently used args
     parser.add_argument("--simulations", "-s", help="Simulation numbers. Default: 100", type=int,
-                        default=100)  # noqa: E501
+                        default=400)  # noqa: E501
 
     if cmd_line_args is None:
         args = parser.parse_args()

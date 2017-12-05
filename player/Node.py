@@ -124,10 +124,9 @@ class Node:
         """At the end of the search selects a move a to play in the root
         position s0, proportional to its exponentiated visit count
         """
-        for action, sub_node in self.children.items():
-            move_from, move_to = action
-            self.pi[move_from] += sub_node.N
-            self.pi[64 + move_to] += sub_node.N
+        for move, sub_node in self.children.items():
+            self.pi[move.from_square] += sub_node.N
+            self.pi[64 + move.to_square] += sub_node.N
 
         self.pi /= np.sum(self.pi)
         return self.pi

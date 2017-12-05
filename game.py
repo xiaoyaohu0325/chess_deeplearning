@@ -24,7 +24,7 @@ class Game(object):
             self.game.headers["Result"] = self.board.result(claim_draw=True)
             return None
 
-        node = Node(self.board.copy(stack=False))
+        node = Node(board=self.board.copy(stack=False))
         move, rate = self.players[self.turn].suggest_move(node)
         self.board.push(move)
         self.game_node = self.game_node.add_variation(move)

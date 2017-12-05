@@ -13,4 +13,4 @@ class RandomPlayerMixin(object):
         selected = random.randint(0, size - 1)
         selected_move = node.legal_moves[selected]
 
-        return (selected_move.from_square, selected_move.to_square), 0.5
+        return selected_move, 0.5

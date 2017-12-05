@@ -24,7 +24,7 @@ def hdf5_batch_generator(feature_dataset,
             end = offset + batch_size
             offset += batch_size
             yield (np.array(feature_dataset[begin:end]),
-                   [np.array(pi_dataset[begin:end]).reshape((batch_size, 448)),
+                   [np.array(pi_dataset[begin:end]).reshape((batch_size, 128)),
                     np.array(rewards_dataset[begin:end]).reshape((batch_size, 1))])
 
 
@@ -48,7 +48,7 @@ def shuffled_hdf5_batch_generator(feature_dataset,
             r_batch = [rewards_dataset[k] for k in indexes[i * batch_size:(i + 1) * batch_size]]
 
             yield (np.array(f_batch).reshape((batch_size, 8, 8, 18)), [
-                np.array(p_batch).reshape((batch_size, 448)),
+                np.array(p_batch).reshape((batch_size, 128)),
                 np.array(r_batch).reshape((batch_size, 1))])
 
 

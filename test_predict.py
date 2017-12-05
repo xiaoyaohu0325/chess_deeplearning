@@ -36,7 +36,7 @@ class TestPredict(unittest.TestCase):
         print(np.sum(prior_p[0]))
 
     def test_search(self):
-        policy = ResnetPolicy.load_model("./out/model/model_10_128.json")
+        policy = ResnetPolicy.load_model("./out/model/model_4_128.json")
         policy.model.load_weights('./out/train/10_128/weights.00008.hdf5')
         fen_start = "r1bqkbr1/ppp1pppp/n4n2/8/1P1pP3/2NQ4/P1PP1PPP/R1B1KBNR w KQq - 0 6"
         fen_middle = "1n2kb2/4p3/b1p3rp/5PP1/pP1p2P1/N2n3P/PB1P2K1/1r2QBNR w - - 22 51"

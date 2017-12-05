@@ -22,8 +22,8 @@ def hdf5_cancat(hdf5_files, output):
         combined.require_dataset(
             name='pi',
             dtype=np.float,
-            shape=(0, 448),
-            maxshape=(None, 448),
+            shape=(0, 128),
+            maxshape=(None, 128),
             chunks=True,
             compression="lzf")
         combined.require_dataset(
@@ -55,7 +55,7 @@ def hdf5_cancat(hdf5_files, output):
                     read_size = end - start
 
                 features.resize((start+read_size, 8, 8, 18))
-                actions.resize((start+read_size, 448))
+                actions.resize((start+read_size, 128))
                 rates.resize((start+read_size, 1))
 
                 features[start:start+read_size] = features_data[offset:offset+read_size]

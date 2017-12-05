@@ -1,6 +1,7 @@
 import chess
 import chess.pgn as pgn
 import h5py as h5
+from player.Node import Node
 
 
 class Game(object):
@@ -23,12 +24,12 @@ class Game(object):
             self.game.headers["Result"] = self.board.result(claim_draw=True)
             return None
 
-        fen = self.board.fen()
-        move = self.players[self.turn].generate_move(fen)
+        node = Node(self.board.copy(stack=False))
+        move, rate = self.players[self.turn].suggest_move(node)
         self.board.push(move)
         self.game_node = self.game_node.add_variation(move)
         self.turn = not self.turn
-        return move
+        return move, rate
 
     def fullmove_count(self):
         return self.board.fullmove_number

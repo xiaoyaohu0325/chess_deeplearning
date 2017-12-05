@@ -1,6 +1,6 @@
 import asyncio
 from asyncio.queues import Queue
-import uvloop
+# import uvloop
 import time
 import numpy as np
 from profilehooks import profile
@@ -10,7 +10,7 @@ import daiquiri
 from util.features import extract_features, bulk_extract_features
 from player.Node import Node
 
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+# asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
@@ -28,7 +28,8 @@ class MCTSPlayerMixin(object):
     """MCTS Network Player Mix in
     """
 
-    def __init__(self, net, num_playouts=1600):
+    def __init__(self, net, num_playouts=1600, name='MCTSPlayer'):
+        self.name = name
         self.net = net
         self.now_expanding = set()
         self.expanded = set()

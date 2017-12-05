@@ -4,6 +4,8 @@ import random
 
 
 class RandomPlayerMixin(object):
+    def __init__(self, name):
+        self.name = name
 
     def suggest_move(self, node: Node)->tuple:
         node.expand_node(np.ones((128,)))

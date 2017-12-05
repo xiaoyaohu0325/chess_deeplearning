@@ -6,16 +6,16 @@ import chess
 import argparse
 import os
 
-# from player.MCTSPlayer import MCTSPlayerMixin
+from player.MCTSPlayer import MCTSPlayerMixin
 # from player.RandomPlayer import RandomPlayerMixin
 from player.Node import Node
 from tree_exporter import export_node
 import logging
 import daiquiri
-import pyximport
-pyximport.install()
-
-from player.MCTSPlayer_C import *
+# import pyximport
+# pyximport.install()
+#
+# from player.MCTSPlayer_C import *
 
 daiquiri.setup(level=logging.INFO)
 logger = daiquiri.getLogger(__name__)

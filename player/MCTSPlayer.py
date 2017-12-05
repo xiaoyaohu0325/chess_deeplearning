@@ -95,7 +95,7 @@ class MCTSPlayerMixin(object):
         self.loop.run_until_complete(asyncio.gather(*coroutine_list))
 
         logger.debug("Searched for {0:.5f} seconds".format(time.time() - start))
-        return node.select_next_action(keep_children=False)
+        return node.select_next_move(keep_children=False)
 
     async def tree_search(self, node: Node)->float:
         """Independent MCTS, stands for one simulation"""
@@ -151,9 +151,9 @@ class MCTSPlayerMixin(object):
         else:
             """node has already expanded. Enter select phase."""
             # select child node with maximum action scroe
-            action_t = node.select_action_by_score()
+            move_t = node.select_move_by_score()
 
-            child_node = node.children[action_t]
+            child_node = node.children[move_t]
 
             # add virtual loss
             # child_node.virtual_loss_do()

@@ -98,27 +98,27 @@ class Node:
         else:
             return c_PUCT * self.P * np.sqrt(len(self.parent.children)) / 2
 
-    def select_action_by_score(self)->tuple:
+    def select_move_by_score(self)->tuple:
         selected_node = max(self.children.values(), key=lambda act_node: act_node.get_value())
-        return selected_node.move.from_square, selected_node.move.to_square
+        return selected_node.move
 
-    def select_next_action(self, keep_children=False):
+    def select_next_move(self, keep_children=False):
         self.update_pi()
 
-        selected_action = self.select_action_by_score()
-        selected_node = self.children[selected_action]
+        selected_move = self.select_move_by_score()
+        selected_node = self.children[selected_move]
 
         if not keep_children:
             # option 1: prune all nodes except the selected one
             self.children.clear()
-            self.children[selected_action] = selected_node
+            self.children[selected_move] = selected_node
         else:
             # option 2: keep the direct children nodes and descendant nodes of the selected node
             for sub_node in self.children.values():
                 if sub_node != selected_node:
                     sub_node.children.clear()
 
-        return selected_action
+        return selected_move
 
     def update_pi(self):
         """At the end of the search selects a move a to play in the root
@@ -216,7 +216,7 @@ class Node:
         sub_node = Node(parent=self, board=board_copy, move_prob=move_prob)
         sub_node.move = move
         sub_node.index = len(self.children)
-        self.children[(move.from_square, move.to_square)] = sub_node
+        self.children[move] = sub_node
         return sub_node
 
     def result(self):

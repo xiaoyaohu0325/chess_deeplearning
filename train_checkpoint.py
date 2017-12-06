@@ -3,6 +3,7 @@ from player.MCTSPlayer import MCTSPlayerMixin
 from player.RandomPlayer import RandomPlayerMixin
 from policy import ResnetPolicy
 import argparse
+import os
 import logging
 import daiquiri
 
@@ -52,10 +53,10 @@ def _create_player(model, weights, simulation=400):
         return RandomPlayerMixin(name='random')
     else:
         policy = ResnetPolicy.load_model(model)
-        # model_name = os.path.basename(model)
-        # name = os.path.splitext(model_name)[0]
+        model_name = os.path.basename(model)
+        name = os.path.splitext(model_name)[0]
         policy.model.load_weights(weights)
-        return MCTSPlayerMixin(policy, simulation)
+        return MCTSPlayerMixin(policy, simulation, name=name)
 
 
 if __name__ == '__main__':

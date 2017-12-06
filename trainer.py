@@ -104,6 +104,16 @@ def meta_write_cb(out_directory, train_data, model, resume):
 
 def run_training(cmd_line_args=None):
     """Run training. command-line args may be passed in as a list
+    Learning rate schedule of AlphaGo Zero
+    Thousands of steps         learning rate
+    0-200                       10^-2
+    200-400                     10^-2
+    400-600                     10^-3
+    >600                        10^-4
+    step means mini-batch update
+    Training course of AlphaGo Zero:
+    29 million of self-play games, parameters were updated form 3.1 million mini-batches of 2048 positions each (64
+    workers and mini-batch is 32 per workder).
     """
     import argparse
     parser = argparse.ArgumentParser(description='Perform training on a policy network.')

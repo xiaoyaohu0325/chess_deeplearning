@@ -57,10 +57,10 @@ class Node:
             return False
 
         # add noise
-        if self.n < 30:
-            noise = dirichlet([.03] * len(self.legal_moves))
-            for idx, move in enumerate(self.legal_moves):
-                result[move_to_index(move)] += noise[idx]
+        # if self.n < 30:
+        #     noise = dirichlet([.03] * len(self.legal_moves))
+        #     for idx, move in enumerate(self.legal_moves):
+        #         result[move_to_index(move)] += noise[idx]
 
         result /= np.sum(result)  # make sure the sum of result is 1
         for move in self.legal_moves:

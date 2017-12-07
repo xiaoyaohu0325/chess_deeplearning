@@ -2,6 +2,39 @@ import numpy as np
 import chess
 
 
+def extrac_piece_planes(board: chess.Board):
+    """
+    Extract piece planes for current board state.
+    White pieces
+    0. pawn
+    1. knight
+    2. bishop
+    3. rook
+    4: queue
+    5: king
+    6-11 are Black pieces in the same order
+    :param board:
+    :return: ndarray of shape 8*8*12
+    """
+    assert board is not None, "board must not be None"
+    result = np.zeros((8, 8, 12), dtype=np.uint8)
+
+    def _extract_piece(p_type, color, index):
+        square_set = board.pieces(p_type, color)
+        for square in square_set:
+            rank = chess.square_rank(square)
+            file = chess.square_file(square)
+            result[rank, file, index] = 1
+
+    for idx, piece_type in enumerate(chess.PIECE_TYPES):
+        # white
+        _extract_piece(piece_type, chess.WHITE, idx)
+        # black
+        _extract_piece(piece_type, chess.BLACK, idx+6)
+
+    return result
+
+
 def extract_features(node):
     """
     Group 1:

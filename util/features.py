@@ -3,6 +3,43 @@ import chess
 
 
 def extract_features(node):
+    """
+    Group 1:
+
+    Feature             planes
+    P1 pieces           6
+    P2 pieces           6
+    Repetitions         2
+
+    Group 2:
+
+    Feature             planes
+    Colour              1
+    Total move count    1
+    P1 castling         2
+    P2 castling         2
+    No-progress count   1
+
+    Total planes: 119
+
+    The first group of features are repeated for each position in a T = 8-step history.
+    The input to the neural network is an N × N × (M*T + L) image stack that represents state using a concatenation of
+    T sets of M planes of size N × N .
+    Each set of planes represents the board position at a time-step t − T + 1, ..., t,
+    and is set to zero for time-steps less than 1.
+
+    The M feature planes are composed of binary feature planes indicating the presence of the player’s pieces,
+    with one plane for each piece type, and a second set of planes indicating the presence of the opponent’s pieces.
+
+    Counts are represented by a single real-valued input; other input features are represented
+    by a one-hot encoding using the specified number of binary input planes.
+    The current player is denoted by P1 and the opponent by P2.
+
+
+    Training proceeded for 700,000 steps (mini-batches of size 4,096) starting from randomly initialised parameters
+    :param node:
+    :return:
+    """
     return fen_to_features(node.fen())
 
 

@@ -11,6 +11,49 @@ virtual_loss = 3
 
 
 class Node:
+    """
+    A move in chess may be described in two parts: selecting the piece to move, and then selecting
+    among the legal moves for that piece. We represent the policy π(a|s) by a 8 × 8 × 73 stack of
+    planes encoding a probability distribution over 4,672 possible moves. Each of the 8 × 8 positions
+    identifies the square from which to “pick up” a piece.
+
+    The first 56 planes encode possible ‘queen moves’ for any piece: a number of squares [1..7]
+    in which the piece will be moved, along one of eight relative compass directions
+    {N,NE,E,SE,S,SW,W,NW}.
+    1st plane: Move north 1 square
+    2nd plane: Move north 2 squares
+    ...
+    56th plane: Move north-west 7 squares
+
+    The next 8 planes encode possible knight moves for that piece.
+    1st plane: knight move two squares up and one square right, (rank+2, file+1)
+    2nd plane: knight move one square up and two squares right, (rank+1, file+2)
+    3rd plane: knight move one square down and two squares right, (rank-1, file+2)
+    4th plane: knight move two squares down and one square right, (rank-2, file+1)
+    5th plane: knight move two squares down and one square left, (rank-2, file-1)
+    6th plane: knight move one square down and two squares left, (rank-1, file-2)
+    7th plane: knight move one square up and two squares left, (rank+1, file-2)
+    8th plane: knight move two squares up and one square left, (rank+2, file-1)
+
+    The final 9 planes encode possible underpromotions for pawn moves or captures in two possible diagonals,
+    to knight, bishop or rook respectively. Other pawn moves or captures from the seventh rank are promoted to a queen.
+    1st plane: move forward, promote to rook
+    2nd plane: move forward, promote to bishop
+    3rd plane: move forward, promote to knight
+    4th plane: capture up left, promote to rook
+    5th plane: capture up left, promote to bishop
+    6th plane: capture up left, promote to knight
+    7th plane: capture up right, promote to rook
+    8th plane: capture up right, promote to bishop
+    9th plane: capture up right, promote to knight
+
+    The learning rate was set to 0.2 for each game, and was dropped three times (to 0.02, 0.002 and 0.0002 respectively)
+    during the course of training. Moves are selected in proportion to the root visit count.
+    Dirichlet noise Dir(α) was added to the prior probabilities in the root node; this was scaled in inverse proportion
+    to the approximate number of legal moves in a typical position, to a value of α = {0.3, 0.15, 0.03} for chess,
+    shogi(日本将棋) and Go respectively. Unless otherwise specified, the training and search algorithm and parameters are
+    identical to AlphaGo Zero.
+    """
     def __init__(self, parent=None, board=None, move_prob=None, index=0):
         """
         board: chess board

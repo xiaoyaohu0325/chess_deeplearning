@@ -26,9 +26,11 @@ CounterKey = namedtuple("CounterKey", "board to_play depth")
 
 class MCTSPlayerMixin(object):
     """MCTS Network Player Mix in
+    From Apphazero
+    During training, each MCTS used 800 simulations.
     """
 
-    def __init__(self, net, num_playouts=1600, name='MCTSPlayer'):
+    def __init__(self, net, num_playouts=800, name='MCTSPlayer'):
         self.name = name
         self.net = net
         self.now_expanding = set()

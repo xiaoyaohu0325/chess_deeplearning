@@ -14,7 +14,7 @@ def extrac_piece_planes(board: chess.Board):
     5: king
     6-11 are Black pieces in the same order
     :param board:
-    :return: ndarray of shape 8*8*12
+    :return: ndarray of shape 8*8*12. The board is oriented to the perspective of the current player.
     """
     assert board is not None, "board must not be None"
     result = np.zeros((8, 8, 12), dtype=np.uint8)
@@ -24,13 +24,16 @@ def extrac_piece_planes(board: chess.Board):
         for square in square_set:
             rank = chess.square_rank(square)
             file = chess.square_file(square)
+            if board.turn == chess.BLACK:
+                rank = 7 - rank
+                file = 7 - file
             result[rank, file, index] = 1
 
     for idx, piece_type in enumerate(chess.PIECE_TYPES):
         # white
-        _extract_piece(piece_type, chess.WHITE, idx)
+        _extract_piece(piece_type, board.turn, idx)
         # black
-        _extract_piece(piece_type, chess.BLACK, idx+6)
+        _extract_piece(piece_type, not board.turn, idx+6)
 
     return result
 
@@ -73,6 +76,27 @@ def extract_features(node):
     :param node:
     :return:
     """
+
+    def _color_plane(board: chess.Board):
+        if board.turn == chess.WHITE:
+            return np.ones((8, 8), dtype=np.uint8)
+        return np.zeros((8, 8), dtype=np.uint8)
+
+    def _castling_planes(board: chess.Board):
+        """The current player is denoted by P1 and the opponent by P2"""
+        p1 = board.turn
+        p2 = not p1
+        result = np.zeros((8, 8, 4), dtype=np.uint8)
+        if board.has_queenside_castling_rights(p1):
+            result[:, :, 0] = 1
+        if board.has_kingside_castling_rights(p1):
+            result[:, :, 1] = 1
+        if board.has_queenside_castling_rights(p2):
+            result[:, :, 2] = 1
+        if board.has_kingside_castling_rights(p2):
+            result[:, :, 3] = 1
+        return result
+
     return fen_to_features(node.fen())
 
 

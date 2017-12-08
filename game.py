@@ -31,7 +31,7 @@ class Game(object):
         self.is_game_over = False
         self.repetitions = collections.Counter()
 
-    def play(self):
+    def play(self, move_to_play=None):
         if self._can_claim_draw():
             self.game.headers["Result"] = "1/2-1/2"
             return None
@@ -39,8 +39,12 @@ class Game(object):
             self.game.headers["Result"] = self.board.result()
             return None
 
-        node = Node(board=self.board.copy(stack=False))
-        move, rate = self.players[self.turn].suggest_move(node)
+        if move_to_play is None:
+            node = Node(board=self.board.copy(stack=False))
+            move, rate = self.players[self.turn].suggest_move(node)
+        else:
+            move = move_to_play
+            rate = 0.5
         self.board.push(move)
         self.repetitions.update((board_key(self.board),))
         self.game_node = self.game_node.add_variation(move)
@@ -57,7 +61,7 @@ class Game(object):
         return False
 
     def winner_color(self):
-        result = self.board.result(claim_draw=True)
+        result = self.board.result()
 
         if result == '0-1':
             return chess.BLACK

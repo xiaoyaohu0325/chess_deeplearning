@@ -1,12 +1,11 @@
-import simple_chess as chess
-import chess.pgn as pgn
+import chess
 import numpy as np
 from numpy.random import dirichlet
 from util.features import move_to_index
 from collections import namedtuple
 
-CounterKey = namedtuple("CounterKey", "board to_play depth")
-c_PUCT = 3
+CounterKey = namedtuple("CounterKey", "board to_play depth idx")
+c_PUCT = 5
 virtual_loss = 3
 
 
@@ -59,10 +58,11 @@ class Node:
         board: chess board
         """
         self.parent = parent
-        self.board = board if board is not None else chess.Board()
+        self.board = board
         self.n = 0 if self.parent is None else self.parent.n+1
         self.index = index
-        self.to_play = self.board.turn
+        self.to_play = None
+        self.played = False
         self.children = {}
         self.legal_moves = []
         self.move = None
@@ -80,39 +80,46 @@ class Node:
                                                              "None" if self.move is None else self.move,
                                                              "W" if self.to_play else "B")
 
+    def copy_board_from_parent(self):
+        if self.board is not None:
+            return
+        assert self.parent is not None, "parent must not be None when copying board from parent"
+        assert self.parent.board is not None
+        self.board = self.parent.board.copy(stack=False)
+        self.to_play = self.board.turn
+
     def counter_key(self) -> namedtuple:
-        return CounterKey(self.board.occupied, self.to_play, self.n)
+        return CounterKey(self.board.occupied, self.to_play, self.n, self.index)
 
     def expand_node(self, predict: np.ndarray)->None:
         """Expand leaf node"""
-        """predict is an array of size 128"""
-        p_from = predict[:64]
-        p_to = predict[64:]
-        result = np.zeros((4096,))
+        self.play_move()
 
-        for move in self.board.generate_legal_moves():
-            self.legal_moves.append(move)
-            p_1 = p_from[move.from_square]
-            p_2 = p_to[move.to_square]
-            result[move_to_index(move)] = p_1 * p_2
-
-        if len(self.legal_moves) == 0:
-            return False
-
-        # add noise
-        # if self.n < 30:
-        #     noise = dirichlet([.03] * len(self.legal_moves))
-        #     for idx, move in enumerate(self.legal_moves):
-        #         result[move_to_index(move)] += noise[idx]
-
-        result /= np.sum(result)  # make sure the sum of result is 1
-        for move in self.legal_moves:
-            self.play_move(move, move_prob=result[move_to_index(move)])
+        # TODO implement expand node
+        # p_from = predict[:64]
+        # p_to = predict[64:]
+        # result = np.zeros((4096,))
+        #
+        # for move in self.board.generate_legal_moves():
+        #     self.legal_moves.append(move)
+        #     p_1 = p_from[move.from_square]
+        #     p_2 = p_to[move.to_square]
+        #     result[move_to_index(move)] = p_1 * p_2
+        #
+        # if len(self.legal_moves) == 0:
+        #     return False
+        #
+        # # add noise
+        # # if self.n < 30:
+        # #     noise = dirichlet([.03] * len(self.legal_moves))
+        # #     for idx, move in enumerate(self.legal_moves):
+        # #         result[move_to_index(move)] += noise[idx]
+        #
+        # result /= np.sum(result)  # make sure the sum of result is 1
+        # for move in self.legal_moves:
+        #     self._append_child_node(move, move_prob=result[move_to_index(move)])
 
         return True
-
-    def is_game_over(self):
-        return self.board.is_game_over()
 
     def back_up_value(self, value: float)->None:
         """update: N, W, Q, U"""
@@ -245,17 +252,18 @@ class Node:
     def _weights(self):
         return "W: %f\nQ: %f\nN: %d\nU: %f" % (self.W, self.Q, self.N, self.U)
 
-    def fen(self):
-        return self.board.fen()
+    def play_move(self, move=None):
+        """Play the move of current node, only once"""
+        if not self.played:
+            self.copy_board_from_parent()
+            if move is not None:
+                self.move = move
+            self.board.push(self.move)
+            self.played = True
 
-    def is_legal_move(self, move):
-        return move in self.legal_moves
-
-    def play_move(self, move, move_prob=None):
-        board_copy = self.board.copy(stack=False)
-        board_copy.push(move)
-
-        sub_node = Node(parent=self, board=board_copy, move_prob=move_prob)
+    def append_child_node(self, move, move_prob=None):
+        """Just append child, don't copy board until necessary(expand node or play the move)"""
+        sub_node = Node(parent=self, move_prob=move_prob)
         sub_node.move = move
         sub_node.index = len(self.children)
         self.children[move] = sub_node

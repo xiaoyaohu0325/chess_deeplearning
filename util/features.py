@@ -25,16 +25,16 @@ def extrac_piece_planes(game, board: chess.Board):
         for square in square_set:
             rank = chess.square_rank(square)
             file = chess.square_file(square)
-            if board.turn == chess.BLACK:
+            if game.turn == chess.BLACK:
                 rank = 7 - rank
                 file = 7 - file
             result[rank, file, index] = 1
 
     for idx, piece_type in enumerate(chess.PIECE_TYPES):
         # white
-        _extract_piece(piece_type, board.turn, idx)
+        _extract_piece(piece_type, game.turn, idx)
         # black
-        _extract_piece(piece_type, not board.turn, idx+6)
+        _extract_piece(piece_type, not game.turn, idx+6)
 
     repetition_num = game.count_repetitions(board)
     if repetition_num == 1:
@@ -96,17 +96,17 @@ def extract_features(game, node):
                 result[:, :, i*planes_time_step:(i+1)*planes_time_step] = planes
                 current_node = current_node.parent
             else:
-                result[:, :, i * planes_time_step:(i + 1) * planes_time_step] = np.zeros((8, 8, planes_time_step))
+                result[:, :, i * planes_time_step:(i + 1) * planes_time_step] = 0
 
         return result
 
-    def _color_plane(board: chess.Board):
-        if board.turn == chess.WHITE:
+    def _color_plane(turn):
+        if turn == chess.WHITE:
             return np.ones((8, 8), dtype=np.uint8)
         return np.zeros((8, 8), dtype=np.uint8)
 
     def _total_moves(board: chess.Board):
-        return np.full((8, 8, 1), board.fullmove_number, dtype=np.uint16)
+        return np.full((8, 8), board.fullmove_number, dtype=np.uint16)
 
     def _castling_planes(board: chess.Board):
         """The current player is denoted by P1 and the opponent by P2"""
@@ -124,14 +124,14 @@ def extract_features(game, node):
         return result
 
     def _non_process_moves(board: chess.Board):
-        return np.full((8, 8, 1), board.halfmove_clock//2, dtype=np.uint16)
+        return np.full((8, 8), board.halfmove_clock//2, dtype=np.uint16)
 
     features = np.empty((8, 8, 119))
     features[:, :, 0:112] = _move_history()
-    features[:, :, 112] = _color_plane(node.board)
-    features[:, :, 113] = _total_moves(node.board)
-    features[:, :, 114:118] = _castling_planes(node.board)
-    features[:, :, 118] = _non_process_moves(node.board)
+    features[:, :, 112] = _color_plane(game.turn)
+    features[:, :, 113] = _total_moves(game.board)
+    features[:, :, 114:118] = _castling_planes(game.board)
+    features[:, :, 118] = _non_process_moves(game.board)
     return features
 
 

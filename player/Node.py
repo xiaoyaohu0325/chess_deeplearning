@@ -272,35 +272,3 @@ class Node:
         if result == '*':
             return '1/2-1/2'
         return result
-
-    def _get_pgn_game(self):
-        root = self.get_root()
-        game = pgn.Game()
-        game.headers["Event"] = "Self play"
-        next_node = root.next_node()
-        game_node = game
-
-        while True:
-            game_node = game_node.add_variation(next_node.move)
-            if next_node.is_leaf():
-                break
-            temp = next_node.next_node()
-            if temp is not None:
-                next_node = temp
-            else:
-                break
-
-        game.headers["Result"] = next_node.result()
-
-        return game
-
-    def save_as_pgn(self, file_path):
-        game = self._get_pgn_game()
-        with open(file_path, "w", encoding="utf-8") as f:
-            exporter = pgn.FileExporter(f)
-            game.accept(exporter)
-
-    def export_pgn_str(self):
-        game = self._get_pgn_game()
-        exporter = pgn.StringExporter(headers=True)
-        return game.accept(exporter)

@@ -29,6 +29,6 @@ class MCTSTest(unittest.TestCase):
         end = timer()
 
         print("suggest move elapse:", end-start)
-        print("selected move:", action_to_icu(move), ', win_rate:', win_rate)
+        print("selected move:", move.icu(), ', win_rate:', win_rate)
         g = export_node(root_node)
         g.render(filename=str(0), directory='../out/view/mcts')

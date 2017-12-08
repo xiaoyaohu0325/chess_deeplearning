@@ -2,7 +2,6 @@ import random
 import numpy as np
 import daiquiri
 import logging
-from util.features import index_to_action
 
 daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)

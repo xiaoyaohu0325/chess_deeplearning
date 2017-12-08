@@ -2,6 +2,8 @@ import unittest
 import chess
 import numpy as np
 from util.features import extrac_piece_planes
+from player.RandomPlayer import RandomPlayerMixin
+from game import Game
 
 
 class TestFeatures(unittest.TestCase):
@@ -17,8 +19,8 @@ class TestFeatures(unittest.TestCase):
         P B . P . . K .
         . r . . Q B N R
         """
-        planes = extrac_piece_planes(board)
-        self.assertEqual(planes.shape, (8, 8, 12))
+        planes = extrac_piece_planes(Game(RandomPlayerMixin("random"), RandomPlayerMixin("random")), board)
+        self.assertEqual(planes.shape, (8, 8, 14))
         """
         White pieces
         0. pawn
@@ -100,8 +102,8 @@ class TestFeatures(unittest.TestCase):
         . . . p . . . .
         . . b k . . n .
         """
-        planes = extrac_piece_planes(board)
-        self.assertEqual(planes.shape, (8, 8, 12))
+        planes = extrac_piece_planes(Game(RandomPlayerMixin("random"), RandomPlayerMixin("random")), board)
+        self.assertEqual(planes.shape, (8, 8, 14))
         """
         Black pieces
         0. pawn

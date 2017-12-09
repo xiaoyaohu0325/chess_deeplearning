@@ -145,11 +145,3 @@ def bulk_extract_features(game, nodes):
 
 def decode_piece(p):
     return ord(p) - ord('A')
-
-
-def move_to_index(move):
-    return move.from_square * 64 + move.to_square
-
-
-def index_to_move(idx):
-    return divmod(idx, 64)

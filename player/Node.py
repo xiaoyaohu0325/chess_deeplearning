@@ -1,7 +1,6 @@
-import chess
 import numpy as np
 from numpy.random import dirichlet
-from util.features import move_to_index
+from util.actions import move_to_index
 from collections import namedtuple
 
 CounterKey = namedtuple("CounterKey", "board to_play depth idx")
@@ -67,7 +66,7 @@ class Node:
         probs = []
         for move in self.board.generate_legal_moves():
             self.legal_moves.append(move)
-            probs.append(predict[move_to_index(move)])
+            probs.append(predict[move_to_index(move, self.board.turn)])
 
         if len(self.legal_moves) == 0:
             return False
@@ -133,12 +132,13 @@ class Node:
         position s0, proportional to its exponentiated visit count
         """
         for move, sub_node in self.children.items():
-            self.pi[move_to_index(move)] += sub_node.N
+            self.pi[move_to_index(move, self.board.turn)] += sub_node.N
 
         if self.n > 30:
-            return self._apply_temperature()
+            self.pi = self._apply_temperature()
 
-        return self.pi / np.sum(self.pi)
+        self.pi /= np.sum(self.pi)
+        return self.pi
 
     def _apply_temperature(self):
         beta = 1 / 1e-12

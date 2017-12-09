@@ -71,8 +71,8 @@ def play_games():  #(model, weights, out_dir, games, pid):
         print("game ", i, " finished!  elapsed ", end - start, ", round: ", game.board.fullmove_number,
               ", result:", game.winner_color())
 
-        game.save_pgn(file_path=os.path.join("./out/self_play", "pgn_{0}.h5".format(0)))
-        game.save_features(file_path=os.path.join("./out/self_play", "features_{0}.h5".format(0)))
+        game.save_pgn(file_path=os.path.join("./out/self_play", "pgn_{0}.h5".format(1)))
+        game.save_features(file_path=os.path.join("./out/self_play", "features_{0}.h5".format(1)))
 
 # def search_move(s0_node, n_simulation, n_depth):
 #     for i in range(n_simulation):

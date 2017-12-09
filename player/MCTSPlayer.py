@@ -136,6 +136,7 @@ class MCTSPlayerMixin(object):
             future = await self.push_queue(features)
             await future
             move_probs, value = future.result()
+            assert len(move_probs) == 4672
 
             # expand by move probabilities
             node.expand_node(move_probs)
@@ -199,4 +200,4 @@ class MCTSPlayerMixin(object):
     def run_many(self, bulk_features):
         # First iterator, generate random predict data
         # return np.ones((len(bulk_features), 128)), np.random.uniform(-1, 1, (len(bulk_features), 1))
-        return self.net.forward(bulk_features)
+        return self.net.run_many(bulk_features)

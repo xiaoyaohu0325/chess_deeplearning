@@ -19,7 +19,7 @@ class ResnetPolicy(object):
             # self.__class__ refers to the subclass so that subclasses only
             # need to override create_network()
             self.model = self.create_network()
-            self.forward = self._model_forward()
+            self.run_many = self._model_forward()
 
     def _model_forward(self):
         """Construct a function using the current keras backend that, when given a batch
@@ -60,7 +60,7 @@ class ResnetPolicy(object):
         network.model = model_from_json(object_specs['keras_model'])
         if 'weights_file' in object_specs:
             network.model.load_weights(object_specs['weights_file'])
-        network.forward = network._model_forward()
+        network.run_many = network._model_forward()
         return network
 
     def save_model(self, json_file, weights_file=None):

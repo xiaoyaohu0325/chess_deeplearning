@@ -1,6 +1,5 @@
 from policy import ResnetPolicy
 from timeit import default_timer as timer
-from preprocessing import game_converter
 import logging
 import chess
 import argparse
@@ -9,6 +8,10 @@ from game import Game
 
 from player.MCTSPlayer import MCTSPlayerMixin
 from player.RandomPlayer import RandomPlayerMixin
+
+from model.network import Network
+from config import FLAGS, HPS
+
 from player.Node import Node
 from tree_exporter import export_node
 import logging
@@ -26,22 +29,25 @@ MAX_MOVES = 500
 SIMULATIONS = 200
 
 
-def play_games(model, weights, out_dir, games, pid):
-    policy = None
-    if model is not None and weights is not None:
-        policy = ResnetPolicy.load_model(model)
-        policy.model.load_weights(weights)
+def play_games():  #(model, weights, out_dir, games, pid):
+    # policy = None
+    # if model is not None and weights is not None:
+        # policy = ResnetPolicy.load_model(model)
+        # policy.model.load_weights(weights)
+    net = Network(FLAGS, HPS)
 
-    for i in range(games):
+    for i in range(1):
         # start a new
         start = timer()
         # root_node = Node()
         # mctc = MCTSPlayerMixin(policy, 200)
         # random_player = RandomPlayerMixin()
-        if policy is not None:
-            game = Game(MCTSPlayerMixin(policy, SIMULATIONS), MCTSPlayerMixin(policy, SIMULATIONS))
-        else:
-            game = Game(RandomPlayerMixin("r1"), RandomPlayerMixin("r2"))
+
+        game = Game(MCTSPlayerMixin(net, SIMULATIONS), MCTSPlayerMixin(net, SIMULATIONS))
+        # if policy is not None:
+        #     game = Game(MCTSPlayerMixin(net, SIMULATIONS), MCTSPlayerMixin(net, SIMULATIONS))
+        # else:
+        #     game = Game(RandomPlayerMixin("r1"), RandomPlayerMixin("r2"))
         # next_node = root_node
         moves = 0
         while True:
@@ -65,10 +71,8 @@ def play_games(model, weights, out_dir, games, pid):
         print("game ", i, " finished!  elapsed ", end - start, ", round: ", game.board.fullmove_number,
               ", result:", game.winner_color())
 
-        if not os.path.exists(out_dir) or not os.path.isdir(out_dir):
-            os.mkdir(out_dir)
-        game.save_pgn(file_path=os.path.join(out_dir, "pgn_{0}.h5".format(str(pid))))
-        game.save_features(file_path=os.path.join(out_dir, "features_{0}.h5".format(str(pid))))
+        game.save_pgn(file_path=os.path.join("./out/self_play", "pgn_{0}.h5".format(0)))
+        game.save_features(file_path=os.path.join("./out/self_play", "features_{0}.h5".format(0)))
 
 # def search_move(s0_node, n_simulation, n_depth):
 #     for i in range(n_simulation):
@@ -81,21 +85,22 @@ def play_games(model, weights, out_dir, games, pid):
 
 
 def run_self_play(cmd_line_args=None):
-    parser = argparse.ArgumentParser(description='Perform self play to generate data.')
-    # required args
-    parser.add_argument("out_directory", help="directory where metadata and weights will be saved")
-    parser.add_argument("--model", "-m", help="Path to a JSON model file (i.e. from ResnetPolicy.save_model())")
-    parser.add_argument("--weights", "-w", help="Path to a weights file")
-    parser.add_argument("--games", "-n", help="Number of games to generate. Default: 1", type=int,
-                        default=1)
-    parser.add_argument("--pid", "-p", help="unique id of the generated h5 file. Default: 0", type=int,
-                        default=0)
-
-    if cmd_line_args is None:
-        args = parser.parse_args()
-    else:
-        args = parser.parse_args(cmd_line_args)
-    play_games(args.model, args.weights, args.out_directory, args.games, args.pid)
+    # parser = argparse.ArgumentParser(description='Perform self play to generate data.')
+    # # required args
+    # parser.add_argument("out_directory", help="directory where metadata and weights will be saved")
+    # parser.add_argument("--model", "-m", help="Path to a JSON model file (i.e. from ResnetPolicy.save_model())")
+    # parser.add_argument("--weights", "-w", help="Path to a weights file")
+    # parser.add_argument("--games", "-n", help="Number of games to generate. Default: 1", type=int,
+    #                     default=1)
+    # parser.add_argument("--pid", "-p", help="unique id of the generated h5 file. Default: 0", type=int,
+    #                     default=0)
+    #
+    # if cmd_line_args is None:
+    #     args = parser.parse_args()
+    # else:
+    #     args = parser.parse_args(cmd_line_args)
+    # play_games(args.model, args.weights, args.out_directory, args.games, args.pid)
+    play_games()
 
 
 if __name__ == '__main__':

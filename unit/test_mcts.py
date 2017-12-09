@@ -32,3 +32,17 @@ class MCTSTest(unittest.TestCase):
         print("selected move:", move.uci(), ', win_rate:', win_rate)
         # g = export_node(root_node)
         # g.render(filename=str(0), directory='../out/view/mcts')
+
+    def test_tf(self):
+        from model.network import Network
+        from config import FLAGS, HPS
+        net = Network(FLAGS, HPS)
+
+        mc_root = MCTSPlayerMixin(net, 300)
+        game = Game(mc_root, mc_root)
+        start = timer()
+        move, win_rate = game.play()
+        end = timer()
+
+        print("suggest move elapse:", end - start)
+        print("selected move:", move.uci(), ', win_rate:', win_rate)

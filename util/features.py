@@ -2,7 +2,7 @@ import numpy as np
 import chess
 
 
-def extrac_piece_planes(game, board: chess.Board):
+def extrac_piece_planes(game, board: chess.Board, current_player):
     """
     Extract piece planes for current board state.
     Current player's pieces
@@ -15,6 +15,7 @@ def extrac_piece_planes(game, board: chess.Board):
     6-11 are opponent's pieces in the same order
     :param game:
     :param board:
+    :param current_player:
     :return: ndarray of shape 8*8*12. The board is oriented to the perspective of the current player.
     """
     assert board is not None, "board must not be None"
@@ -25,16 +26,16 @@ def extrac_piece_planes(game, board: chess.Board):
         for square in square_set:
             rank = chess.square_rank(square)
             file = chess.square_file(square)
-            if game.turn == chess.BLACK:
+            if current_player == chess.BLACK:
                 rank = 7 - rank
                 file = 7 - file
             result[rank, file, index] = 1
 
     for idx, piece_type in enumerate(chess.PIECE_TYPES):
         # white
-        _extract_piece(piece_type, game.turn, idx)
+        _extract_piece(piece_type, current_player, idx)
         # black
-        _extract_piece(piece_type, not game.turn, idx+6)
+        _extract_piece(piece_type, not current_player, idx+6)
 
     repetition_num = game.count_repetitions(board)
     if repetition_num == 1:
@@ -87,16 +88,15 @@ def extract_features(game, node):
     def _move_history():
         """ Each set of planes represents the board position at a time-step t − T + 1, ..., t"""
         planes_time_step = 14
-        result = np.empty((8, 8, planes_time_step*8))  # 14*8
+        result = np.zeros((8, 8, planes_time_step*8))  # 14*8
         current_node = node
+        player = node.board.turn
 
         for i in range(7, 0, -1):
             if current_node is not None:
-                planes = extrac_piece_planes(game, current_node.board)
+                planes = extrac_piece_planes(game, current_node.board, player)
                 result[:, :, i*planes_time_step:(i+1)*planes_time_step] = planes
                 current_node = current_node.parent
-            else:
-                result[:, :, i * planes_time_step:(i + 1) * planes_time_step] = 0
 
         return result
 
@@ -124,14 +124,14 @@ def extract_features(game, node):
         return result
 
     def _non_process_moves(board: chess.Board):
-        return np.full((8, 8), board.halfmove_clock//2, dtype=np.uint16)
+        return np.full((8, 8), board.halfmove_clock, dtype=np.uint16)
 
     features = np.empty((8, 8, 119))
     features[:, :, 0:112] = _move_history()
-    features[:, :, 112] = _color_plane(game.turn)
-    features[:, :, 113] = _total_moves(game.board)
-    features[:, :, 114:118] = _castling_planes(game.board)
-    features[:, :, 118] = _non_process_moves(game.board)
+    features[:, :, 112] = _color_plane(node.board.turn)
+    features[:, :, 113] = _total_moves(node.board)
+    features[:, :, 114:118] = _castling_planes(node.board)
+    features[:, :, 118] = _non_process_moves(node.board)
     return features
 
 

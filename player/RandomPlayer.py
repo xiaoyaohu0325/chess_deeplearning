@@ -8,7 +8,7 @@ class RandomPlayerMixin(object):
         self.name = name
 
     def suggest_move(self, node: Node)->tuple:
-        node.expand_node(np.ones((128,)))
+        node.expand_node(np.ones((4672,)))
         size = len(node.legal_moves)
         selected = random.randint(0, size - 1)
         selected_move = node.legal_moves[selected]

@@ -21,8 +21,7 @@ class TestFeatures(unittest.TestCase):
         . r . . Q B N R
         """
         game = Game(RandomPlayerMixin("random"), RandomPlayerMixin("random"))
-        game.turn = chess.WHITE
-        planes = extrac_piece_planes(game, board)
+        planes = extrac_piece_planes(game, board, chess.WHITE)
         self.assertEqual(planes.shape, (8, 8, 14))
         """
         White pieces
@@ -106,8 +105,7 @@ class TestFeatures(unittest.TestCase):
         . . b k . . n .
         """
         game = Game(RandomPlayerMixin("random"), RandomPlayerMixin("random"))
-        game.turn = chess.BLACK
-        planes = extrac_piece_planes(game, board)
+        planes = extrac_piece_planes(game, board, chess.BLACK)
         self.assertEqual(planes.shape, (8, 8, 14))
         """
         Black pieces

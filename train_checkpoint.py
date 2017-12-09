@@ -19,7 +19,7 @@ def play(white_player, black_player, out_file, n_game=100):
             move = game.play()
 
         print('game', i, 'finished! Full moves', game.fullmove_count(), 'winner:', game.winner_color())
-        game.save_to_h5(out_file)
+        game.save_pgn(out_file)
 
 
 def run_checkpoint(cmd_line_args=None):

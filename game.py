@@ -54,7 +54,7 @@ class Game(object):
 
         if move_to_play is None:
             node = Node(board=self.board.copy(stack=False))
-            move, rate = self.players[self.turn].suggest_move(node)
+            move, rate = self.players[self.turn].suggest_move(self, node)
             if self.generate_features:
                 self.leaf_node.pi = node.pi     # get pi of the node
         else:

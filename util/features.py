@@ -135,11 +135,11 @@ def extract_features(game, node):
     return features
 
 
-def bulk_extract_features(nodes):
+def bulk_extract_features(game, nodes):
     num_nodes = len(nodes)
     output = np.zeros([num_nodes, 8, 8, 119])
     for i, pos in enumerate(nodes):
-        output[i] = extract_features(pos)
+        output[i] = extract_features(game, pos)
     return output
 
 

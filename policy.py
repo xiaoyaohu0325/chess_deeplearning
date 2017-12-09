@@ -10,7 +10,7 @@ reg_control = 0.0001
 
 class ResnetPolicy(object):
 
-    def __init__(self, residual_blocks=10, num_cnn_filter=128, init_network=False):
+    def __init__(self, residual_blocks=19, num_cnn_filter=256, init_network=False):
         self.model = None
         self.residual_blocks = residual_blocks
         self.num_cnn_filter = num_cnn_filter
@@ -83,7 +83,7 @@ class ResnetPolicy(object):
     def create_network(self):
         """Create the AlphaGo Zero neural network
         """
-        inputs = layers.Input(shape=(8, 8, 18))
+        inputs = layers.Input(shape=(8, 8, 119))
 
         # create first convolution layer of 256 filters of kernel size 3*3 with stride 1
         first_convolution_layer = layers.Conv2D(filters=self.num_cnn_filter,
@@ -136,24 +136,24 @@ class ResnetPolicy(object):
         The order of the piece type is decided by their position index in the board regardless the piece type.
         Bottom-left index is 0, top-right index is 63.
         """
-        y = layers.Conv2D(filters=4, kernel_size=1, strides=1, padding='same',
-                          kernel_regularizer=regularizers.l2(reg_control))(layer)
-        y = layers.BatchNormalization()(y)
-        y = layers.LeakyReLU()(y)
-        y = layers.Flatten()(y)
-        # give a name for the out, out dimension is 64*64
-        y = layers.Dense(128, activation="softmax", name="policy_output",
-                         kernel_regularizer=regularizers.l2(reg_control))(y)
-
-        return y
-
-    def _value_head(self, layer):
         y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
         y = layers.LeakyReLU()(y)
         y = layers.Flatten()(y)
-        y = layers.Dense(128, kernel_regularizer=regularizers.l2(reg_control))(y)
+        # give a name for the out, out dimension is 64*64
+        y = layers.Dense(4672, activation="softmax", name="policy_output",
+                         kernel_regularizer=regularizers.l2(reg_control))(y)
+
+        return y
+
+    def _value_head(self, layer):
+        y = layers.Conv2D(filters=1, kernel_size=1, strides=1, padding='same',
+                          kernel_regularizer=regularizers.l2(reg_control))(layer)
+        y = layers.BatchNormalization()(y)
+        y = layers.LeakyReLU()(y)
+        y = layers.Flatten()(y)
+        y = layers.Dense(256, kernel_regularizer=regularizers.l2(reg_control))(y)
         y = layers.LeakyReLU()(y)
         y = layers.Dense(1, activation="tanh", name="value_output",
                          kernel_regularizer=regularizers.l2(reg_control))(y)

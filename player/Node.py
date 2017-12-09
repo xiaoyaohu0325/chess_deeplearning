@@ -55,6 +55,8 @@ class Node:
         self.to_play = self.board.turn
 
     def counter_key(self) -> namedtuple:
+        if self.board is None and self.move is not None:
+            self.play_move()
         return CounterKey(self.board.occupied, self.to_play, self.n, self.index)
 
     def expand_node(self, predict: np.ndarray)->None:

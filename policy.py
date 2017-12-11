@@ -1,9 +1,17 @@
 from keras.models import Model
 from keras import layers
 from keras import regularizers
+from keras.optimizers import SGD
+from keras import losses
 from keras.models import model_from_json
 import json
+import os
 import keras.backend as K
+import logging
+import daiquiri
+
+daiquiri.setup(level=logging.DEBUG)
+logger = daiquiri.getLogger(__name__)
 
 reg_control = 0.0001
 
@@ -58,8 +66,8 @@ class ResnetPolicy(object):
         network = ResnetPolicy(init_network=False)
 
         network.model = model_from_json(object_specs['keras_model'])
-        if 'weights_file' in object_specs:
-            network.model.load_weights(object_specs['weights_file'])
+        # if 'weights_file' in object_specs:
+        #     network.model.load_weights(object_specs['weights_file'])
         network.run_many = network._model_forward()
         return network
 
@@ -73,15 +81,25 @@ class ResnetPolicy(object):
             'class': self.__class__.__name__,
             'keras_model': self.model.to_json()
         }
-        if weights_file is not None:
-            self.model.save_weights(weights_file)
+        # if weights_file is not None:
+        #     self.model.save_weights(weights_file)
             # object_specs['weights_file'] = weights_file
         # use the json module to write object_specs to file
         with open(json_file, 'w') as f:
             json.dump(object_specs, f)
 
+    def save_weights(self, weights_file):
+        self.model.save_weights(weights_file)
+
     def create_network(self):
         """Create the AlphaGo Zero neural network
+        """
+
+        """
+        The convolutional block applies the following modules:
+        1. A convolution of 256 filters of kernel size 3*3 with stride 1
+        2. Batch normalisation
+        3. A rectifier non-linearity
         """
         inputs = layers.Input(shape=(8, 8, 119))
 
@@ -109,6 +127,14 @@ class ResnetPolicy(object):
 
     def _add_residual_blocks(self, layer):
         """Create the residual block
+        Each residual block applies the following modules sequentially to its input:
+        1. A convolution of 256 filters of kernel size 3*3 with stride 1
+        2. Batch normalisation
+        3. A rectifier non-linearity
+        4. A convolution of 256 filters of kernel size 3*3 with stride 1
+        5. Batch normalisation
+        6. A skip connection that adds the input to the block
+        7. A rectifier non-linearity
         """
         shortcut = layer
 
@@ -130,11 +156,13 @@ class ResnetPolicy(object):
         return y
 
     def _policy_header(self, layer):
-        """Each side has 16 pieces, the output is the possibility distribution
-        of moves by these pieces which is 1024(with 16 planes and 64 positions for each plane)
-
-        The order of the piece type is decided by their position index in the board regardless the piece type.
-        Bottom-left index is 0, top-right index is 63.
+        """
+        The policy head applies the following modules:
+        1. A convolution of 2 filters of kernel size 1*1 with stride 1
+        2. Batch normalisation
+        3. A rectifier non-linearity
+        4. A fully connected linear layer that outputs a vector of size 4672 corresponding to logit probabilities
+        for all intersections and the pass move
         """
         y = layers.Conv2D(filters=2, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
@@ -148,6 +176,16 @@ class ResnetPolicy(object):
         return y
 
     def _value_head(self, layer):
+        """
+        The value head applies the following modules:
+        1. A convolution of 1 filter of kernel size 1*1 with stride 1
+        2. Batch normalisation
+        3. A rectifier non-linearity
+        4. A fully connected linear layer to a hidden layer of size 256
+        5. A rectifier non-linearity
+        6. A fully connected linear layer to a scalar
+        7. A tanh non-linearity outputting a scalar in the range [ 1, 1]
+        """
         y = layers.Conv2D(filters=1, kernel_size=1, strides=1, padding='same',
                           kernel_regularizer=regularizers.l2(reg_control))(layer)
         y = layers.BatchNormalization()(y)
@@ -159,3 +197,44 @@ class ResnetPolicy(object):
                          kernel_regularizer=regularizers.l2(reg_control))(y)
 
         return y
+
+    def train(self, training_data, steps, work_dir):
+        from keras.callbacks import ModelCheckpoint
+
+        def _schedule_lrn_rate(train_step):
+            """train_step equals total number of min_batch updates"""
+            if 0 <= train_step < 200000:
+                return 0.2
+            elif 200000 <= train_step < 400000:
+                return 0.02
+            elif 400000 <= train_step < 600000:
+                return 0.002
+            else:
+                return 0.0002
+
+        mini_batch = 64
+        size = len(training_data[0])
+        ln_rate = _schedule_lrn_rate(steps)
+        optimizer = SGD(lr=ln_rate, momentum=0.9)
+        # define loss functions for each output parameter, names are set in the definition
+        # of output layer.
+        self.model.compile(loss={
+            'policy_output': losses.categorical_crossentropy,
+            'value_output': losses.mse},
+            loss_weights={
+                'policy_output': 1.,
+                'value_output': 1.},
+            optimizer=optimizer,
+            metrics=["accuracy"])
+
+        checkpoint_template = os.path.join(work_dir, "weights.{d}.hdf5".format(steps))
+        checkpointer = ModelCheckpoint(checkpoint_template)
+
+        logger.debug('Training model...')
+        self.model.fit(x=training_data[0],
+                       y={'policy_output': training_data[1],
+                          'value_output': training_data[2]},
+                       batch_size=mini_batch,
+                       callbacks=[checkpointer],
+                       steps_per_epoch=size//mini_batch)
+

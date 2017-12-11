@@ -3,7 +3,6 @@ from model.resnet_model import *
 import logging
 import daiquiri
 
-daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 

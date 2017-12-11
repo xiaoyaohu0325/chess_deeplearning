@@ -10,7 +10,6 @@ import keras.backend as K
 import logging
 import daiquiri
 
-daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 reg_control = 0.0001
@@ -56,7 +55,7 @@ class ResnetPolicy(object):
             return lambda inpt: forward_function([inpt])
 
     @staticmethod
-    def load_model(json_file):
+    def load_model(json_file, min_step=0):
         """create a new neural net object from the architecture specified in json_file
         """
         with open(json_file, 'r') as f:
@@ -66,6 +65,7 @@ class ResnetPolicy(object):
         network = ResnetPolicy(init_network=False)
 
         network.model = model_from_json(object_specs['keras_model'])
+        network._compile(min_step)
         # if 'weights_file' in object_specs:
         #     network.model.load_weights(object_specs['weights_file'])
         network.run_many = network._model_forward()
@@ -198,9 +198,7 @@ class ResnetPolicy(object):
 
         return y
 
-    def train(self, training_data, steps, work_dir):
-        from keras.callbacks import ModelCheckpoint
-
+    def _compile(self, min_step):
         def _schedule_lrn_rate(train_step):
             """train_step equals total number of min_batch updates"""
             if 0 <= train_step < 200000:
@@ -212,9 +210,7 @@ class ResnetPolicy(object):
             else:
                 return 0.0002
 
-        mini_batch = 64
-        size = len(training_data[0])
-        ln_rate = _schedule_lrn_rate(steps)
+        ln_rate = _schedule_lrn_rate(min_step)
         optimizer = SGD(lr=ln_rate, momentum=0.9)
         # define loss functions for each output parameter, names are set in the definition
         # of output layer.
@@ -227,14 +223,18 @@ class ResnetPolicy(object):
             optimizer=optimizer,
             metrics=["accuracy"])
 
-        checkpoint_template = os.path.join(work_dir, "weights.{d}.hdf5".format(steps))
-        checkpointer = ModelCheckpoint(checkpoint_template)
+    def train(self, training_data, steps, work_dir):
+        from keras.callbacks import ModelCheckpoint
 
-        logger.debug('Training model...')
+        mini_batch = 64
+        size = len(training_data[0])
+
+        checkpoint_template = os.path.join(work_dir, "weights.{0:d}.hdf5".format(steps))
+        checkpointer = ModelCheckpoint(checkpoint_template)
+        logger.info('Training model...')
         self.model.fit(x=training_data[0],
                        y={'policy_output': training_data[1],
                           'value_output': training_data[2]},
                        batch_size=mini_batch,
-                       callbacks=[checkpointer],
-                       steps_per_epoch=size//mini_batch)
+                       callbacks=[checkpointer])
 

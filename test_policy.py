@@ -15,3 +15,7 @@ class TestCNNPolicy(unittest.TestCase):
         plot_model(policy.model,
                    show_shapes=True,
                    to_file=r"./out/model/model_alphazero.png")
+
+    def test_save_weights(self):
+        policy = ResnetPolicy.load_model(r"./out/model/model_alphazero.json")
+        policy.save_weights(r"./out/model/weights_alphazero.h5")

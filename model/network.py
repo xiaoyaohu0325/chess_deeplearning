@@ -5,10 +5,8 @@ import sys
 from model.alphazero_resnet_model import AlphaZeroResNet
 from model.alphazero_resnet_full_model import AlphaZeroResNetFULL
 
-import logging
 import daiquiri
 
-daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 

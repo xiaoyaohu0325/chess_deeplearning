@@ -7,8 +7,6 @@ from player.Node import Node
 from util.features import extract_features
 import logging
 import daiquiri
-
-daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 

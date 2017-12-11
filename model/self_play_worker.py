@@ -9,7 +9,6 @@ import numpy as np
 from game import Game
 from player.MCTSPlayer import MCTSPlayerMixin
 
-daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 

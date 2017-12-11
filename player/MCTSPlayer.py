@@ -5,13 +5,11 @@ import time
 import numpy as np
 from profilehooks import profile
 from collections import namedtuple
-import logging
 import daiquiri
 from util.features import extract_features, bulk_extract_features
 from player.Node import Node
 
 # asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 # All terminology here (Q, U, N, p_UCT) uses the same notation as in the
@@ -77,7 +75,7 @@ class MCTSPlayerMixin(object):
 
         return move, win_rate
 
-    @profile
+    # @profile
     def suggest_move_mcts(self, game, node: Node)->tuple:
         """Async tree search controller"""
 
@@ -196,7 +194,7 @@ class MCTSPlayerMixin(object):
        @ run_many
     """
 
-    @profile
+    # @profile
     def run_many(self, bulk_features):
         # First iterator, generate random predict data
         # return np.ones((len(bulk_features), 128)), np.random.uniform(-1, 1, (len(bulk_features), 1))

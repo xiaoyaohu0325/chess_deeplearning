@@ -1,11 +1,16 @@
 import logging
 import daiquiri
+from contextlib import contextmanager
+from time import time
+import os
+import h5py
+import numpy as np
+
+from game import Game
+from player.MCTSPlayer import MCTSPlayerMixin
 
 daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
-
-from contextlib import contextmanager
-from time import time
 
 
 @contextmanager
@@ -20,19 +25,33 @@ class SelfPlayWorker(object):
 
     def __init__(self, net, rl_flags):
         self.net = net
+        self.player = MCTSPlayerMixin(net, rl_flags.num_playouts)
+        self.max_moves = rl_flags.num_maxmoves
 
         self.N_moves_per_train = rl_flags.N_moves_per_train
         self.N_games = rl_flags.selfplay_games_per_epoch
-        self.playouts = rl_flags.num_playouts
+        self.out_dir = rl_flags.out_dir
 
-        # self.position = go.Position(to_play=go.BLACK)
-        # self.final_position_collections = []
+    def start_index_of_features(self):
+        if not os.path.exists(os.path.join(self.out_dir, "features.h5")):
+            return 0
+        try:
+            h5f = h5py.File(os.path.join(self.out_dir, "features.h5"))
+            return len(h5f["features"])
+        finally:
+            h5f.close()
 
-        self.num_games_to_evaluate = rl_flags.selfplay_games_against_best_model
-
-    # def reset_position(self):
-    #     # self.position = go.Position(to_play=go.BLACK)
-    #     pass
+    def extract_training_data(self, start_index):
+        try:
+            h5f = h5py.File(os.path.join(self.out_dir, "features.h5"))
+            feature_dataset = h5f["features"]
+            pi_dataset = h5f["pi"]
+            rewards_dataset = h5f["rewards"]
+            return (feature_dataset[start_index:start_index+self.N_moves_per_train],
+                    pi_dataset[start_index:start_index+self.N_moves_per_train],
+                    rewards_dataset[start_index:start_index+self.N_moves_per_train])
+        finally:
+            h5f.close()
 
     '''
     params:
@@ -40,54 +59,26 @@ class SelfPlayWorker(object):
         usage: run self play with search
     '''
 
-    def run(self, lr=0.01):
-
+    def run(self, step):
         moves_counter = 0
+        start_index = self.start_index_of_features()
+        training_steps = step
 
         for i in range(self.N_games):
             """self play with MCTS search"""
 
             with timer("Self-Play Simulation Game #{0}".format(i+1)):
-                final_position, agent_resigned, false_positive = simulate_game_mcts(self.net, self.position,
-                                                                                    playouts=self.playouts, resignThreshold=self.resign_threshold, no_resign=self.no_resign_this_game)
+                game = Game(self.player, self.player)
+                game.play_to_end(max_moves=self.max_moves)
+                game.save_pgn(os.path.join(self.out_dir, "pgn.h5"))
+                from_index, to_index = game.save_features(os.path.join(self.out_dir, "features.h5"))
 
-                logger.debug('Game #{0} Final Position:\n{1}'.format(i+1, final_position))
-
-            # reset game board
-            # self.reset_position()
-
-            # Discard game that resign too early
-            # if final_position.n <= self.dicard_game_threshold:
-            #     logger.debug('Game #{0} ends too early, discard!'.format(i+1))
-            #     continue
-
-            # add final_position to history
-            self.final_position_collections.append(final_position)
-            moves_counter += final_position.n
+            moves_counter += (to_index - from_index)
 
             if moves_counter >= self.N_moves_per_train:
-                winners_training_samples, losers_training_samples = extract_moves(
-                    self.final_position_collections)
-                self.net.train(winners_training_samples, direction=1., lrn_rate=lr)
-                # self.net.train(losers_training_samples, direction=-1., lrn_rate=lr)
-                # self.final_position_collections = []
-                moves_counter = 0
-
-    # def evaluate_model(self, best_model):
-    #     self.reset_position()
-    #     final_positions = simulate_many_games(
-    #         self.net, best_model, [self.position] * self.num_games_to_evaluate)
-    #     win_ratio = get_winrate(final_positions)
-    #     if win_ratio < 0.55:
-    #         logger.info(f'Previous Generation win by {win_ratio:.4f}% the game!')
-    #         self.net.close()
-    #         self.net = best_model
-    #     else:
-    #         logger.info(f'Current Generation win by {win_ratio:.4f}% the game!')
-    #         best_model.close()
-    #         # self.net.save_model(name=round(win_ratio,4))
-    #     self.reset_position()
-    #
-    # def evaluate_testset(self, test_dataset):
-    #     with timer("test set evaluation"):
-    #         self.net.test(test_dataset, proportion=.1, no_save=True)
+                training_samples = self.extract_training_data(start_index)
+                start_index += self.N_moves_per_train
+                self.net.train(training_samples, training_steps)
+                # features left are moved to next train
+                moves_counter = to_index - start_index
+                training_steps += 1

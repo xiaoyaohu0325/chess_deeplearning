@@ -74,6 +74,16 @@ class Game(object):
         self.turn = self.board.turn
         return move, rate
 
+    def play_to_end(self, max_moves=500):
+        """Play the game until game is over"""
+        moves = 0
+        while True:
+            move, win_rate = self.play()
+            moves += 1
+            if (moves > max_moves) or move is None:
+                break
+        self.feed_back_rewards()
+
     def count_repetitions(self, board):
         """Count the repetition number of the board state"""
         return self.repetitions[board_key(board)]
@@ -201,6 +211,7 @@ class Game(object):
             actions = h5f["pi"]
             rates = h5f["rewards"]
             size = len(features)
+            from_idx = size
 
             for state, pi, r in self._node_features():
                 features.resize((size + 1, 8, 8, 119))
@@ -210,7 +221,7 @@ class Game(object):
                 actions[size] = pi
                 rates[size] = r
                 size += 1
-
+            return from_idx, size
         except Exception as e:
             print("append to hdf5 failed")
             raise e

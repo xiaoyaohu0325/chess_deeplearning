@@ -302,7 +302,7 @@ class AlphaZeroResNet(ResNet):
             self.value.append(value)
 
         with tf.variable_scope('costs'):
-            self.use_sparse_sotfmax = tf.constant(1, tf.int32, name="condition")
+            self.use_sparse_sotfmax = tf.constant(-1, tf.int32, name="condition")
 
             def f1(): return tf.nn.sparse_softmax_cross_entropy_with_logits(
                 logits=logits, labels=tf.argmax(label_batch, axis=1))

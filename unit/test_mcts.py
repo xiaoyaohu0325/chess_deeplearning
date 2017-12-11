@@ -38,7 +38,7 @@ class MCTSTest(unittest.TestCase):
         from config import FLAGS, HPS
         net = Network(FLAGS, HPS)
 
-        mc_root = MCTSPlayerMixin(net, 300)
+        mc_root = MCTSPlayerMixin(net, 200)
         game = Game(mc_root, mc_root)
         start = timer()
         move, win_rate = game.play()

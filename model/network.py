@@ -12,6 +12,19 @@ daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 
+def schedule_lrn_rate(train_step):
+    """train_step equals total number of min_batch updates"""
+    if 0 <= train_step < 200000:
+        lr = 0.2
+    elif 200000 <= train_step < 400000:
+        lr = 0.02
+    elif 400000 <= train_step < 600000:
+        lr = 0.002
+    else:
+        lr = 0.0002
+    return lr
+
+
 class Network:
 
     """
@@ -117,6 +130,7 @@ class Network:
             try:
                 ckpt = tf.train.get_checkpoint_state(check_point_path)
                 self.saver.restore(self.sess, ckpt.model_checkpoint_path)
+                logger.debug('checkout_path:' + ckpt.model_checkpoint_path)
                 logger.debug('Loading Model Succeeded...')
             except:
                 logger.debug('Loading Model Failed')
@@ -128,8 +142,9 @@ class Network:
         usage: save model
     '''
 
-    def save_model(self, out_dir, name: float):
-        self.saver.save(self.sess, os.path.join(out_dir, 'model-{0}.ckpt'.format(name)),
+    def save_model(self, out_dir):
+        global_step = self.sess.run(self.model.global_step)
+        self.saver.save(self.sess, os.path.join(out_dir, 'model-{0}.ckpt'.format(global_step)),
                         global_step=self.sess.run(self.model.global_step))
 
     '''
@@ -151,36 +166,43 @@ class Network:
         # so vstack will merge them together.
         return np.vstack(move_probabilities), np.vstack(value)
 
-    '''
-    params:
-         @ training_data: training dataset
-         @ direction: reinforcement direction
-         @ use_sparse: use sparse softmax to compute cross entropy
-    '''
+    def get_batch(self, training_date, batch_size, start_idx, shuffle_index):
+        """Generate batches of training data for use with the fit_generator function
+            of Keras. Data is accessed in the order of the given indices for shuffling.
+            """
+        feature_batch = []
+        pi_batch = []
+        rewards_batch = []
 
-    def train(self, training_data, direction=1.0, use_sparse=True, lrn_rate=1e-3):
+        for i in range(batch_size):
+            idx_i = shuffle_index[start_idx+i]
+            feature_batch.append(training_date[0][idx_i])
+            pi_batch.append(training_date[1][idx_i])
+            rewards_batch.append(training_date[2][idx_i])
+
+        return feature_batch, pi_batch, rewards_batch
+
+    def train(self, training_data, steps):
         logger.debug('Training model...')
-        self.num_iter = training_data.data_size // self.batch_num
+        lrn_rate = schedule_lrn_rate(steps)
+        self.num_iter = len(training_data[0]) // self.batch_num
 
         # Set default learning rate for scheduling
         for j in range(self.num_epoch):
             logger.debug('Local Epoch {0}'.format(j+1))
+            indexes = np.arange(len(training_data[0]))
+            np.random.shuffle(indexes)
 
             for i in range(self.num_iter):
-                batch = training_data.get_batch(self.batch_num)
+                batch = self.get_batch(training_data, self.batch_num, i*self.batch_num, indexes)
                 batch = [np.asarray(item).astype(np.float32) for item in batch]
-                # convert the last feature: player colour to -1 & 1 rather than 0 & 1
-                batch[0][..., 16] = (batch[0][..., 16] - 0.5) * 2
-                # convert the game result: -1 & 1 rather than 0 & 1
-                batch[2] = (batch[2] - 0.5) * 2
 
                 feed_dict = {self.imgs: batch[0],
                              self.labels: batch[1],
                              self.results: batch[2],
-                             self.model.reinforce_dir: direction,  # +1 or -1 only used for self-play data, trivial in SL
-                             self.model.use_sparse_sotfmax: 1 if use_sparse else -1,  # +1 in SL, -1 in RL
-                             self.model.training: True}
-                # self.model.lrn_rate: lrn_rate} # scheduled learning rate
+                             self.model.use_sparse_sotfmax: -1,  # +1 in SL, -1 in RL
+                             self.model.training: True,
+                             self.model.lrn_rate: lrn_rate}
 
                 try:
                     _, l, ac, result_ac, summary, lr, temp, global_norm = \

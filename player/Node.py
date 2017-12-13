@@ -1,35 +1,43 @@
-import simple_chess as chess
-import chess.pgn as pgn
 import numpy as np
 from numpy.random import dirichlet
-from util.features import move_to_index
+from util.actions import move_to_index
 from collections import namedtuple
 
-CounterKey = namedtuple("CounterKey", "board to_play depth")
-c_PUCT = 3
+CounterKey = namedtuple("CounterKey", "board to_play depth idx")
+c_PUCT = 5
 virtual_loss = 3
 
 
 class Node:
+    """
+    The learning rate was set to 0.2 for each game, and was dropped three times (to 0.02, 0.002 and 0.0002 respectively)
+    during the course of training. Moves are selected in proportion to the root visit count.
+    Dirichlet noise Dir(α) was added to the prior probabilities in the root node; this was scaled in inverse proportion
+    to the approximate number of legal moves in a typical position, to a value of α = {0.3, 0.15, 0.03} for chess,
+    shogi(日本将棋) and Go respectively. Unless otherwise specified, the training and search algorithm and parameters are
+    identical to AlphaGo Zero.
+    """
     def __init__(self, parent=None, board=None, move_prob=None, index=0):
         """
         board: chess board
         """
         self.parent = parent
-        self.board = board if board is not None else chess.Board()
+        self.board = board
         self.n = 0 if self.parent is None else self.parent.n+1
         self.index = index
-        self.to_play = self.board.turn
+        self.to_play = None
+        self.played = False
         self.children = {}
         self.legal_moves = []
         self.move = None
+        self.features = None
 
         self.W = 0
         self.N = 0
         self.Q = 0
         self.P = 0 if move_prob is None else move_prob
         self.U = 0
-        self.pi = np.zeros((128,))
+        self.pi = np.zeros((4672,))
         self.reward = 0
 
     def __str__(self):
@@ -37,39 +45,38 @@ class Node:
                                                              "None" if self.move is None else self.move,
                                                              "W" if self.to_play else "B")
 
+    def copy_board_from_parent(self):
+        if self.board is not None:
+            return
+        assert self.parent is not None, "parent must not be None when copying board from parent"
+        assert self.parent.board is not None
+        self.board = self.parent.board.copy(stack=False)
+        self.to_play = self.board.turn
+
     def counter_key(self) -> namedtuple:
-        return CounterKey(self.board.occupied, self.to_play, self.n)
+        if self.board is None and self.move is not None:
+            self.play_move()
+        return CounterKey(self.board.occupied, self.to_play, self.n, self.index)
 
     def expand_node(self, predict: np.ndarray)->None:
         """Expand leaf node"""
-        """predict is an array of size 128"""
-        p_from = predict[:64]
-        p_to = predict[64:]
-        result = np.zeros((4096,))
+        if self.board is None and self.move is not None:
+            self.play_move()
 
+        probs = []
         for move in self.board.generate_legal_moves():
             self.legal_moves.append(move)
-            p_1 = p_from[move.from_square]
-            p_2 = p_to[move.to_square]
-            result[move_to_index(move)] = p_1 * p_2
+            probs.append(predict[move_to_index(move, self.board.turn)])
 
         if len(self.legal_moves) == 0:
             return False
 
-        # add noise
-        # if self.n < 30:
-        #     noise = dirichlet([.03] * len(self.legal_moves))
-        #     for idx, move in enumerate(self.legal_moves):
-        #         result[move_to_index(move)] += noise[idx]
-
-        result /= np.sum(result)  # make sure the sum of result is 1
-        for move in self.legal_moves:
-            self.play_move(move, move_prob=result[move_to_index(move)])
+        noise = dirichlet([0.3] * len(self.legal_moves))    # according to alphazero paper
+        for idx, move in enumerate(self.legal_moves):
+            probs[idx] += noise[idx]
+            self.append_child_node(move, probs[idx])
 
         return True
-
-    def is_game_over(self):
-        return self.board.is_game_over()
 
     def back_up_value(self, value: float)->None:
         """update: N, W, Q, U"""
@@ -125,40 +132,25 @@ class Node:
         position s0, proportional to its exponentiated visit count
         """
         for move, sub_node in self.children.items():
-            self.pi[move.from_square] += sub_node.N
-            self.pi[64 + move.to_square] += sub_node.N
+            self.pi[move_to_index(move, self.board.turn)] += sub_node.N
+
+        if self.n > 30:
+            self.pi = self._apply_temperature()
 
         self.pi /= np.sum(self.pi)
         return self.pi
 
-    def _feedback_reward(self, value):
-        self.reward = value
-
-        node = self.parent
-        while node is not None:
-            value = value * -1
-            node.reward = value
-            node = node.parent
-
-    def feed_back_winner(self, force=False):
-        """When game is over, it is then scored to give a final reward of r_T {-1,0,+1}
-        The data for each time-step t is stored as (s_t,Pi_t,z_t) where z_t = ±r_T is the
-        game winner from the perspective of the current player at step t
-        """
-        value = 0
-        if not force:
-            if not self.board.is_game_over():
-                raise ValueError("this method can be invoked only when game is over")
-
-            result = self.result()
-            if result == "0-1":
-                value = -1
-            elif result == "1-0":
-                value = -1
-            elif result == "1/2-1/2":
-                value = 0
-
-        self._feedback_reward(value)
+    def _apply_temperature(self):
+        beta = 1 / 1e-12
+        log_probabilities = np.log(self.pi)
+        # apply beta exponent to probabilities (in log space)
+        log_probabilities = log_probabilities * beta
+        # scale probabilities to a more numerically stable range (in log space)
+        log_probabilities = log_probabilities - log_probabilities.max()
+        # convert back from log space
+        probabilities = np.exp(log_probabilities)
+        # re-normalize the distribution
+        return probabilities / probabilities.sum()
 
     def is_leaf(self):
         """Check if leaf node (i.e. no nodes below this have been expanded).
@@ -202,62 +194,19 @@ class Node:
     def _weights(self):
         return "W: %f\nQ: %f\nN: %d\nU: %f" % (self.W, self.Q, self.N, self.U)
 
-    def fen(self):
-        return self.board.fen()
+    def play_move(self, move=None):
+        """Play the move of current node, only once"""
+        if not self.played:
+            self.copy_board_from_parent()
+            if move is not None:
+                self.move = move
+            self.board.push(self.move)
+            self.played = True
 
-    def is_legal_move(self, move):
-        return move in self.legal_moves
-
-    def play_move(self, move, move_prob=None):
-        board_copy = self.board.copy(stack=False)
-        board_copy.push(move)
-
-        sub_node = Node(parent=self, board=board_copy, move_prob=move_prob)
+    def append_child_node(self, move, move_prob=None):
+        """Just append child, don't copy board until necessary(expand node or play the move)"""
+        sub_node = Node(parent=self, move_prob=move_prob)
         sub_node.move = move
         sub_node.index = len(self.children)
         self.children[move] = sub_node
         return sub_node
-
-    def result(self):
-        """
-        Gets the game result.
-
-        ``1-0``, ``0-1`` or ``1/2-1/2`` if the
-        game is over. Otherwise the result is undetermined: ``*``.
-        """
-        result = self.board.result()
-        if result == '*':
-            return '1/2-1/2'
-        return result
-
-    def _get_pgn_game(self):
-        root = self.get_root()
-        game = pgn.Game()
-        game.headers["Event"] = "Self play"
-        next_node = root.next_node()
-        game_node = game
-
-        while True:
-            game_node = game_node.add_variation(next_node.move)
-            if next_node.is_leaf():
-                break
-            temp = next_node.next_node()
-            if temp is not None:
-                next_node = temp
-            else:
-                break
-
-        game.headers["Result"] = next_node.result()
-
-        return game
-
-    def save_as_pgn(self, file_path):
-        game = self._get_pgn_game()
-        with open(file_path, "w", encoding="utf-8") as f:
-            exporter = pgn.FileExporter(f)
-            game.accept(exporter)
-
-    def export_pgn_str(self):
-        game = self._get_pgn_game()
-        exporter = pgn.StringExporter(headers=True)
-        return game.accept(exporter)

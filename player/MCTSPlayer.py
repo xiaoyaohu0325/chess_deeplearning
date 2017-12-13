@@ -5,13 +5,11 @@ import time
 import numpy as np
 from profilehooks import profile
 from collections import namedtuple
-import logging
 import daiquiri
 from util.features import extract_features, bulk_extract_features
 from player.Node import Node
 
 # asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-daiquiri.setup(level=logging.DEBUG)
 logger = daiquiri.getLogger(__name__)
 
 # All terminology here (Q, U, N, p_UCT) uses the same notation as in the
@@ -26,9 +24,11 @@ CounterKey = namedtuple("CounterKey", "board to_play depth")
 
 class MCTSPlayerMixin(object):
     """MCTS Network Player Mix in
+    From Apphazero
+    During training, each MCTS used 800 simulations.
     """
 
-    def __init__(self, net, num_playouts=1600, name='MCTSPlayer'):
+    def __init__(self, net, num_playouts=800, name='MCTSPlayer'):
         self.name = name
         self.net = net
         self.now_expanding = set()
@@ -61,10 +61,10 @@ class MCTSPlayerMixin(object):
        @ push_queue
     """
 
-    def suggest_move(self, node: Node)->tuple:
+    def suggest_move(self, game, node: Node)->tuple:
         self.node = node
         """Use MCTS guided by NN"""
-        move = self.suggest_move_mcts(node)
+        move = self.suggest_move_mcts(game, node)
 
         """Get win ratio"""
         player = 'W' if node.to_play else 'B'
@@ -76,34 +76,32 @@ class MCTSPlayerMixin(object):
         return move, win_rate
 
     # @profile
-    def suggest_move_mcts(self, node: Node)->tuple:
+    def suggest_move_mcts(self, game, node: Node)->tuple:
         """Async tree search controller"""
-        if node.is_game_over():
-            return 0
 
         start = time.time()
 
         if node.is_leaf():
             logger.debug('Expanding Root Node...')
-            move_probs, _ = self.run_many(bulk_extract_features([node]))
+            move_probs, _ = self.run_many(bulk_extract_features(game, [node]))
             node.expand_node(move_probs[0])
 
         coroutine_list = []
         for _ in range(self.playouts):
-            coroutine_list.append(self.tree_search(node))
+            coroutine_list.append(self.tree_search(game, node))
         coroutine_list.append(self.prediction_worker())
         self.loop.run_until_complete(asyncio.gather(*coroutine_list))
 
         logger.debug("Searched for {0:.5f} seconds".format(time.time() - start))
         return node.select_next_move(keep_children=False)
 
-    async def tree_search(self, node: Node)->float:
+    async def tree_search(self, game, node: Node)->float:
         """Independent MCTS, stands for one simulation"""
         self.running_simulation_num += 1
 
         # reduce parallel search number
         with await self.sem:
-            value = await self.start_tree_search(node)
+            value = await self.start_tree_search(game, node)
             node.back_up_value(value)
             # logger.debug("value: {0}".format(value))
             # logger.debug('Current running threads : {0}'.format(RUNNING_SIMULATION_NUM))
@@ -111,11 +109,8 @@ class MCTSPlayerMixin(object):
 
             return value
 
-    async def start_tree_search(self, node: Node)->float:
+    async def start_tree_search(self, game, node: Node)->float:
         """Monte Carlo Tree search Select,Expand,Evauate,Backup"""
-        if node.is_game_over():
-            return 0
-
         now_expanding = self.now_expanding
 
         key = node.counter_key()
@@ -133,12 +128,13 @@ class MCTSPlayerMixin(object):
             # logger.debug("Investigating following position:\n{0}".format(node))
 
             # perform dihedral manipuation
-            features = extract_features(node)
+            features = extract_features(game, node)
 
             # push extracted features of leaf node to the evaluation queue
             future = await self.push_queue(features)
             await future
             move_probs, value = future.result()
+            assert len(move_probs) == 4672
 
             # expand by move probabilities
             node.expand_node(move_probs)
@@ -157,7 +153,7 @@ class MCTSPlayerMixin(object):
 
             # add virtual loss
             # child_node.virtual_loss_do()
-            value = await self.start_tree_search(child_node)  # next move
+            value = await self.start_tree_search(game, child_node)  # next move
             # child_node.virtual_loss_undo()
 
             logger.debug("value: {0:.2f} for position: {1}".format(value, child_node))
@@ -202,4 +198,4 @@ class MCTSPlayerMixin(object):
     def run_many(self, bulk_features):
         # First iterator, generate random predict data
         # return np.ones((len(bulk_features), 128)), np.random.uniform(-1, 1, (len(bulk_features), 1))
-        return self.net.forward(bulk_features)
+        return self.net.run_many(bulk_features)

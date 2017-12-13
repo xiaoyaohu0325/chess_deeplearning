@@ -224,17 +224,17 @@ class ResnetPolicy(object):
             metrics=["accuracy"])
 
     def train(self, training_data, steps, work_dir):
-        from keras.callbacks import ModelCheckpoint
+        # from keras.callbacks import ModelCheckpoint
 
         mini_batch = 64
-        size = len(training_data[0])
+        # size = len(training_data[0])
 
-        checkpoint_template = os.path.join(work_dir, "weights.{0:d}.hdf5".format(steps))
-        checkpointer = ModelCheckpoint(checkpoint_template)
+        # checkpoint_template = os.path.join(work_dir, "weights.{0:d}.hdf5".format(steps))
+        # checkpointer = ModelCheckpoint(checkpoint_template)
         logger.info('Training model...')
         self.model.fit(x=training_data[0],
                        y={'policy_output': training_data[1],
                           'value_output': training_data[2]},
-                       batch_size=mini_batch,
-                       callbacks=[checkpointer])
+                       batch_size=mini_batch)
+        self.model.save_weights(os.path.join(work_dir, "weights.{0:d}.hdf5".format(steps)))
 

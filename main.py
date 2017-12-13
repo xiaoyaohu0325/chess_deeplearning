@@ -43,7 +43,7 @@ def selfplay(cmd_line_args=None):
     policy = ResnetPolicy.load_model(args.model, args.min_steps)
     policy.model.load_weights(args.weights)
 
-    worker = SelfPlayWorker(policy, os.path.join(_PATH_, 'out/train'), simulation=800, batch_size=4096)
+    worker = SelfPlayWorker(policy, os.path.join(_PATH_, 'out/train'), simulation=200, batch_size=4096)
     worker.run(args.min_steps, args.max_steps)
 
 

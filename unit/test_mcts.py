@@ -19,10 +19,10 @@ logger = daiquiri.getLogger(__name__)
 class MCTSTest(unittest.TestCase):
 
     def test_suggest_move(self):
-        policy = ResnetPolicy.load_model('../out/model/model_alphazero.json')
-        policy.model.load_weights('../out/model/weights_alphazero.h5')
+        policy = ResnetPolicy.load_model('../out/model/model_simple_zero.json')
+        policy.model.load_weights('../out/model/weights_simple_zero.h5')
 
-        mc_root = MCTSPlayerMixin(policy, 200)
+        mc_root = MCTSPlayerMixin(policy, 800)
         game = Game(mc_root, mc_root)
         start = timer()
         move, win_rate = game.play()

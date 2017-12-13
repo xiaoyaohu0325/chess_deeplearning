@@ -75,7 +75,7 @@ class MCTSPlayerMixin(object):
 
         return move, win_rate
 
-    # @profile
+    @profile
     def suggest_move_mcts(self, game, node: Node)->tuple:
         """Async tree search controller"""
 

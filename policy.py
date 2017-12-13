@@ -7,7 +7,6 @@ from keras.models import model_from_json
 import json
 import os
 import keras.backend as K
-import logging
 import daiquiri
 
 logger = daiquiri.getLogger(__name__)
@@ -17,7 +16,7 @@ reg_control = 0.0001
 
 class ResnetPolicy(object):
 
-    def __init__(self, residual_blocks=19, num_cnn_filter=256, init_network=False):
+    def __init__(self, residual_blocks=12, num_cnn_filter=128, init_network=False):
         self.model = None
         self.residual_blocks = residual_blocks
         self.num_cnn_filter = num_cnn_filter
@@ -71,7 +70,7 @@ class ResnetPolicy(object):
         network.run_many = network._model_forward()
         return network
 
-    def save_model(self, json_file, weights_file=None):
+    def save_model(self, json_file):
         """write the network model to the specified file
 
         If a weights_file (.hdf5 extension) is also specified, model weights are also
@@ -81,9 +80,6 @@ class ResnetPolicy(object):
             'class': self.__class__.__name__,
             'keras_model': self.model.to_json()
         }
-        # if weights_file is not None:
-        #     self.model.save_weights(weights_file)
-            # object_specs['weights_file'] = weights_file
         # use the json module to write object_specs to file
         with open(json_file, 'w') as f:
             json.dump(object_specs, f)

@@ -232,5 +232,5 @@ class ResnetPolicy(object):
                        y={'policy_output': training_data[1],
                           'value_output': training_data[2]},
                        batch_size=mini_batch)
-        self.model.save_weights(os.path.join(work_dir, "weights.{0:d}.hdf5".format(steps)))
-
+        if steps % 10 == 0:
+            self.model.save_weights(os.path.join(work_dir, "weights.{0:d}.hdf5".format(steps)))

@@ -57,7 +57,7 @@ class SelfPlayWorker(object):
         training_steps = min_step
         n_games = 0
 
-        while training_steps < max_step:
+        while training_steps <= max_step:
             """self play with MCTS search"""
 
             with timer("Self-Play Simulation Game #{0}".format(n_games+1)):

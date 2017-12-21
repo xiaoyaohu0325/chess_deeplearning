@@ -22,7 +22,7 @@ class MCTSTest(unittest.TestCase):
         policy = ResnetPolicy.load_model('../out/model/model_simple_zero.json')
         policy.model.load_weights('../out/model/weights_simple_zero.h5')
 
-        mc_root = MCTSPlayerMixin(policy, 800)
+        mc_root = MCTSPlayerMixin(policy, 400)
         game = Game(mc_root, mc_root)
         start = timer()
         move, win_rate = game.play()

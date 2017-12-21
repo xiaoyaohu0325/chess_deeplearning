@@ -4,8 +4,8 @@ from util.actions import move_to_index
 from collections import namedtuple
 
 CounterKey = namedtuple("CounterKey", "board to_play depth idx")
-c_PUCT = 5
-virtual_loss = 3
+c_PUCT = 3
+virtual_loss = 2
 
 
 class Node:

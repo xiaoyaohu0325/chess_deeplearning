@@ -33,6 +33,7 @@ class Game(object):
         self.game.headers["White"] = white_player.name
         self.game.headers["Black"] = black_player.name
         self.game_node = self.game
+        self.played_node = None
         self.is_game_over = False
         self.repetitions = collections.Counter()
         # Game tree
@@ -55,6 +56,7 @@ class Game(object):
             move, rate = self.players[self.turn].suggest_move(self, node)
             if self.generate_features:
                 self.leaf_node.pi = node.pi     # get pi of the node
+            self.played_node = node
         else:
             move = move_to_play
             rate = 0.5

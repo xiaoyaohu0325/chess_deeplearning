@@ -3,7 +3,7 @@ from timeit import default_timer as timer
 import argparse
 import os
 from game import Game
-
+from tree_exporter import export_node
 from player.MCTSPlayer import MCTSPlayerMixin
 
 import logging
@@ -14,7 +14,7 @@ logger = daiquiri.getLogger(__name__)
 
 
 MAX_MOVES = 500
-SIMULATIONS = 200
+SIMULATIONS = 100
 
 
 def play_games(model, weights, out_dir, games, pid):
@@ -33,8 +33,9 @@ def play_games(model, weights, out_dir, games, pid):
             move, win_rate = game.play()
             end_search = timer()
 
-            # g = export_node(next_node, show_details=False)
-            # g.render(filename=str(moves), directory=out_dir)
+            if game.played_node is not None:
+                g = export_node(game.played_node, show_details=False)
+                g.render(filename=str(moves), directory=out_dir)
 
             # next_node = next_node.children[move]
             moves += 1

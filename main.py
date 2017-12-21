@@ -30,8 +30,8 @@ def selfplay(cmd_line_args=None):
     # required args
     parser.add_argument("--model", "-m", help="Path to a JSON model file (i.e. from ResnetPolicy.save_model())")
     parser.add_argument("--weights", "-w", help="Path to a weights file")
-    parser.add_argument("--min_steps", "-s", help="unique id of the generated h5 file. Default: 0", type=int,
-                        default=0)
+    parser.add_argument("--min_steps", "-s", help="unique id of the generated h5 file. Default: 1", type=int,
+                        default=1)
     parser.add_argument("--max_steps", "-x", help="unique id of the generated h5 file. Default: 0", type=int,
                         default=200000)
 
@@ -43,7 +43,7 @@ def selfplay(cmd_line_args=None):
     policy = ResnetPolicy.load_model(args.model, args.min_steps)
     policy.model.load_weights(args.weights)
 
-    worker = SelfPlayWorker(policy, os.path.join(_PATH_, 'out/train'), simulation=200, batch_size=4096)
+    worker = SelfPlayWorker(policy, os.path.join(_PATH_, 'out/train'), simulation=100, batch_size=4096)
     worker.run(args.min_steps, args.max_steps)
 
 
